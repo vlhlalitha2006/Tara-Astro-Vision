@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tara Astro Vision</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Noto+Sans+Telugu:wght@300;400;500&family=Noto+Sans+Devanagari:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════ NAVBAR ═══════════════════════════════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" onclick="showPage('home')">
+        <img src="logo.jpg" alt="Tara Astro Vision Logo" class="logo-om">
+        <span class="logo-text" data-i18n="brand">Tara Astro Vision</span>
+      </a>
+
+      <div class="nav-links" id="navLinks">
+        <a href="#" class="nav-link" onclick="showPage('home')" data-i18n="nav_home">Home</a>
+        <a href="#" class="nav-link" onclick="showPage('horoscope')" data-i18n="nav_horoscope">Horoscope</a>
+        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('kundli')"
+          data-i18n="nav_kundli">Kundli</a>
+        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('dashboard')"
+          data-i18n="nav_dashboard">Dashboard</a>
+        <a href="#" class="nav-link" onclick="showPage('poojas')">Poojas</a>
+        <a href="#" class="nav-link" onclick="showPage('homams')">Homams</a>
+        <a href="#" class="nav-link" onclick="showPage('consult')">Consult Astrologer</a>
+      </div>
+
+      <div class="nav-right">
+        <!-- Language Switcher -->
+        <div class="lang-switcher" id="langSwitcher">
+          <button class="lang-btn" onclick="toggleLangMenu()">
+            <span id="currentLangFlag">🇮🇳</span>
+            <span id="currentLangCode">EN</span>
+            <svg width="10" height="6" viewBox="0 0 10 6">
+              <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" />
+            </svg>
+          </button>
+          <div class="lang-menu" id="langMenu">
+            <button onclick="setLanguage('en')"><span>🇬🇧</span> English</button>
+            <button onclick="setLanguage('te')"><span>🇮🇳</span> తెలుగు</button>
+            <button onclick="setLanguage('hi')"><span>🇮🇳</span> हिंदी</button>
+            <button onclick="setLanguage('ta')"><span>🇮🇳</span> தமிழ்</button>
+            <button onclick="setLanguage('ml')"><span>🇮🇳</span> മലയാളം</button>
+            <button onclick="setLanguage('kn')"><span>🇮🇳</span> ಕನ್ನಡ</button>
+            <button onclick="setLanguage('mr')"><span>🇮🇳</span> मराठी</button>
+          </div>
+        </div>
+
+        <!-- Auth Buttons -->
+        <div class="auth-buttons" id="authButtons">
+          <button class="btn-login" onclick="showModal('login')" data-i18n="login">Login</button>
+          <button class="btn-register" onclick="showModal('register')" data-i18n="register">Register</button>
+        </div>
+        <div class="user-menu hidden" id="userMenu">
+          <button class="user-avatar-btn" onclick="toggleUserMenu()">
+            <span class="avatar-circle" id="avatarInitial">A</span>
+            <span id="userName">User</span>
+          </button>
+          <div class="user-dropdown hidden" id="userDropdown">
+            <a href="#" onclick="showPage('dashboard')">Dashboard</a>
+            <a href="#" onclick="showPage('profile')">Profile</a>
+            <a href="#" onclick="logout()">Logout</a>
+          </div>
+        </div>
+
+        <button class="cart-btn" id="cartBtn" onclick="toggleCart()">
+          🛒 <span class="cart-count" id="cartCount">0</span>
+        </button>
+        <button class="hamburger" id="hamburger" onclick="toggleNav()">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════ CART SIDEBAR ═══════════ -->
+  <div class="cart-overlay hidden" id="cartOverlay" onclick="toggleCart()"></div>
+  <div class="cart-sidebar hidden" id="cartSidebar">
+    <div class="cart-header">
+      <h3>🛒 Your Cart</h3>
+      <button class="cart-close-btn" onclick="toggleCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cartItems">
+      <div class="cart-empty" id="cartEmpty">
+        <p>Your cart is empty</p>
+        <p style="font-size:32px;margin-top:12px">🛒</p>
+      </div>
+    </div>
+    <div class="cart-footer" id="cartFooter" style="display:none">
+      <div class="cart-total-row"><span>Total:</span><span id="cartTotal" class="cart-total-amt">₹0</span></div>
+      <button class="btn-primary full-width" onclick="proceedPayment()">Pay &amp; Finalize Items</button>
+      <button class="btn-secondary full-width" style="margin-top:8px" onclick="proceedCheckout()">Request Quote
+        (Email)</button>
+      <button class="btn-secondary full-width" style="margin-top:8px" onclick="clearCart()">Clear Cart</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ PAGES ═══════════════════════════════════════ -->
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="stars-bg" id="starsBg"></div>
+      <div class="hero-content">
+        <img src="logo.jpg" alt="Tara Astro Vision Logo" class="hero-om">
+        <h1 class="hero-title" data-i18n="hero_title">Discover Your Cosmic Path</h1>
+        <p class="hero-sub" data-i18n="hero_sub">Ancient Vedic wisdom. Authentic Jyotisha. Guidance rooted in dharma.
+        </p>
+        <div class="hero-cta">
+          <button class="btn-primary" onclick="requireLogin('kundli')" data-i18n="cta_kundli">Generate Your
+            Kundli</button>
+          <button class="btn-secondary" onclick="showPage('horoscope')" data-i18n="cta_horoscope">Today's
+            Horoscope</button>
+        </div>
+      </div>
+      <div class="hero-mandala"></div>
+    </section>
+
+    <!-- Features -->
+    <section class="features-section">
+      <div class="container">
+        <h2 class="section-title" data-i18n="feat_title">Sacred Offerings</h2>
+        <div class="features-grid">
+          <div class="feature-card" onclick="requireLogin('kundli')">
+            <div class="feat-icon">𑁍</div>
+            <h3 data-i18n="feat_kundli">Birth Chart</h3>
+            <p data-i18n="feat_kundli_desc">Your South Indian Rasi chart with precise planetary positions and life
+              guidance.</p>
+          </div>
+          <div class="feature-card" onclick="showPage('horoscope')">
+            <div class="feat-icon">☽</div>
+            <h3 data-i18n="feat_horoscope">Daily Guidance</h3>
+            <p data-i18n="feat_horoscope_desc">Moon-based daily, weekly, and monthly wisdom for your Rasi and Nakshatra.
+            </p>
+          </div>
+          <div class="feature-card" onclick="requireLogin('dashboard')">
+            <div class="feat-icon">𑁋</div>
+            <h3 data-i18n="feat_dashboard">Personal Journey</h3>
+            <p data-i18n="feat_dashboard_desc">Your saved charts, past readings, and life predictions in one place.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rasi Overview -->
+    <section class="rasi-section">
+      <div class="container">
+        <h2 class="section-title" data-i18n="rasi_title">The Twelve Rasis</h2>
+        <p class="section-sub" data-i18n="rasi_sub">Explore the nature of each Rasi according to Vedic tradition</p>
+        <div class="rasi-grid" id="rasiGrid"></div>
+      </div>
+    </section>
+
+    <!-- Trust -->
+    <section class="trust-section">
+      <div class="container">
+        <div class="trust-grid">
+          <div class="trust-item">
+            <span class="trust-num">100%</span>
+            <span data-i18n="trust_vedic">Pure Vedic</span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-num">Sidereal</span>
+            <span data-i18n="trust_calc">Astronomically Accurate</span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-num">7</span>
+            <span data-i18n="trust_lang">Indian Languages</span>
+          </div>
+          <div class="trust-item">
+            <span class="trust-num">South Indian</span>
+            <span data-i18n="trust_chart">Rasi Chart Style</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- HOROSCOPE PAGE -->
+  <div class="page hidden" id="page-horoscope">
+    <div class="page-hero">
+      <div class="container">
+        <h1 data-i18n="horo_page_title">Vedic Horoscope</h1>
+        <p data-i18n="horo_page_sub">Based on Moon Rasi, Nakshatra & Gochar transit</p>
+      </div>
+    </div>
+
+    <div class="container page-body">
+      <!-- Period Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('daily', this)" data-i18n="tab_daily">Daily</button>
+        <button class="tab" onclick="switchTab('weekly', this)" data-i18n="tab_weekly">Weekly</button>
+        <button class="tab" onclick="switchTab('monthly', this)" data-i18n="tab_monthly">Monthly</button>
+      </div>
+
+      <!-- Rasi Selector -->
+      <div class="rasi-selector" id="rasiSelector">
+        <p class="selector-label" data-i18n="select_rasi">Select your Moon Rasi:</p>
+        <div class="rasi-chips" id="rasiChips"></div>
+      </div>
+
+      <!-- Horoscope Display -->
+      <div class="horo-display" id="horoDisplay">
+        <div class="horo-placeholder">
+          <span class="placeholder-icon">☽</span>
+          <p data-i18n="select_rasi_prompt">Please select your Rasi above to view your guidance</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KUNDLI PAGE -->
+  <div class="page hidden" id="page-kundli">
+    <div class="page-hero">
+      <div class="container">
+        <h1 data-i18n="kundli_page_title">Your Birth Chart</h1>
+        <p data-i18n="kundli_page_sub">South Indian Rasi Chart with precise Vedic calculations</p>
+      </div>
+    </div>
+
+    <div class="container page-body">
+      <div class="kundli-layout">
+        <!-- Input Form -->
+        <div class="kundli-form-section" id="kundliFormSection">
+          <h2 data-i18n="birth_details">Birth Details</h2>
+          <form class="birth-form" onsubmit="generateKundli(event)">
+            <div class="form-group">
+              <label data-i18n="dob">Date of Birth</label>
+              <input type="date" id="dob" required class="form-input" />
+            </div>
+            <div class="form-group">
+              <label data-i18n="tob">Time of Birth</label>
+              <input type="time" id="tob" required class="form-input" />
+            </div>
+            <div class="form-group">
+              <label data-i18n="pob">Place of Birth</label>
+              <input type="text" id="pob" required class="form-input" placeholder="City, Country"
+                oninput="searchCity(this.value)" autocomplete="off" />
+              <div class="city-dropdown hidden" id="cityDropdown"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group half">
+                <label data-i18n="lat">Latitude</label>
+                <input type="number" id="lat" step="0.0001" class="form-input" readonly />
+              </div>
+              <div class="form-group half">
+                <label data-i18n="lon">Longitude</label>
+                <input type="number" id="lon" step="0.0001" class="form-input" readonly />
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n="timezone">Timezone</label>
+              <select id="timezone" class="form-input">
+                <option value="5.5">IST (UTC+5:30)</option>
+                <option value="5.75">Nepal (UTC+5:45)</option>
+                <option value="6">Bangladesh (UTC+6)</option>
+                <option value="0">UTC</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label data-i18n="gender">Gender (Optional)</label>
+              <select id="gender" class="form-input">
+                <option value="">Prefer not to say</option>
+                <option value="male" data-i18n="male">Male</option>
+                <option value="female" data-i18n="female">Female</option>
+                <option value="other" data-i18n="other">Other</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary full-width" data-i18n="generate_chart">Generate My Chart</button>
+          </form>
+        </div>
+
+        <!-- Chart Display -->
+        <div class="kundli-result-section hidden" id="kundliResult">
+          <div class="chart-header">
+            <h2 data-i18n="your_chart">Your Vedic Birth Chart</h2>
+            <div class="chart-style-toggle">
+              <button class="style-btn active" id="btn-south" onclick="setChartStyle('south')">South Indian</button>
+              <button class="style-btn" id="btn-north" onclick="setChartStyle('north')">North Indian</button>
+            </div>
+            <button class="btn-back" onclick="showKundliForm()" data-i18n="recalculate">↩ Recalculate</button>
+          </div>
+
+          <!-- Joint Chart Container -->
+          <div class="charts-row">
+            <div class="chart-box">
+              <h3 class="chart-title" id="lagna-title">Lagna / Ascendant / Basic Birth Chart</h3>
+              <div id="lagnaChartContainer"></div>
+            </div>
+            <div class="chart-box">
+              <h3 class="chart-title" id="navamsa-title">Navamsa</h3>
+              <div id="navamsaChartContainer"></div>
+            </div>
+          </div>
+
+          <!-- Planet Table -->
+          <div class="planet-info" id="planetInfo"></div>
+
+          <!-- Life Overview -->
+          <div class="life-overview" id="lifeOverview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PAGE -->
+  <div class="page hidden" id="page-dashboard">
+    <div class="page-hero">
+      <div class="container">
+        <h1 data-i18n="dash_title">My Dashboard</h1>
+        <p data-i18n="dash_sub">Your personal cosmic journey</p>
+      </div>
+    </div>
+    <div class="container page-body">
+      <div class="dashboard-grid">
+        <div class="dash-card" id="savedCharts">
+          <h3 data-i18n="saved_charts">Saved Charts</h3>
+          <div class="chart-list" id="chartList">
+            <p class="empty-state" data-i18n="no_charts">No charts saved yet. Generate your Kundli first.</p>
+          </div>
+        </div>
+        <div class="dash-card" id="recentReadings">
+          <h3 data-i18n="recent_readings">Recent Readings</h3>
+          <div id="readingsList">
+            <p class="empty-state" data-i18n="no_readings">No readings yet.</p>
+          </div>
+        </div>
+        <div class="dash-card" id="profileCard">
+          <h3 data-i18n="my_profile">My Profile</h3>
+          <div id="profileInfo"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ MODALS ═══════════════════════════════════════ -->
+
+  <!-- Overlay -->
+  <div class="modal-overlay hidden" id="modalOverlay" onclick="closeModal()"></div>
+
+  <!-- Login Modal -->
+  <div class="modal hidden" id="modal-login">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="login_title">Welcome Back</h2>
+      <p data-i18n="login_sub">Login to access your personal guidance</p>
+    </div>
+    <form class="modal-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label data-i18n="email">Email</label>
+        <input type="email" id="loginEmail" required class="form-input" placeholder="your@email.com" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" id="loginPass" required class="form-input" placeholder="••••••••" />
+      </div>
+      <div class="modal-error hidden" id="loginError"></div>
+      <button type="submit" class="btn-primary full-width" data-i18n="login">Login</button>
+      <p class="modal-switch" data-i18n="no_account">Don't have an account?
+        <a href="#" onclick="showModal('register')" data-i18n="register_link">Register</a>
+      </p>
+    </form>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal hidden" id="modal-register">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="register_title">Begin Your Journey</h2>
+      <p data-i18n="register_sub">Create your sacred account</p>
+    </div>
+    <form class="modal-form" onsubmit="handleRegister(event)">
+      <div class="form-group">
+        <label data-i18n="full_name">Full Name</label>
+        <input type="text" id="regName" required class="form-input" placeholder="Your Name" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="email">Email</label>
+        <input type="email" id="regEmail" required class="form-input" placeholder="your@email.com" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" id="regPass" required class="form-input" placeholder="Min 8 characters" minlength="8" />
+      </div>
+      <div class="modal-error hidden" id="registerError"></div>
+      <button type="submit" class="btn-primary full-width" data-i18n="register">Register</button>
+      <p class="modal-switch">Already have an account?
+        <a href="#" onclick="showModal('login')" data-i18n="login_link">Login</a>
+      </p>
+    </form>
+  </div>
+
+  <!-- Login Required Prompt -->
+  <div class="modal hidden" id="modal-loginRequired">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="auth_required">Login Required</h2>
+      <p data-i18n="auth_required_desc">Please login or register to access your personalized birth chart and
+        predictions.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="showModal('login')" data-i18n="login">Login</button>
+      <button class="btn-secondary" onclick="showModal('register')" data-i18n="register">Register</button>
+    </div>
+  </div>
+
+  <!-- Loading Modal -->
+  <div class="modal hidden" id="modal-loading">
+    <div class="loading-inner">
+      <div class="chakra-spinner">𑁍</div>
+      <p data-i18n="calculating">Calculating your cosmic positions...</p>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal hidden" id="modal-payment">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-header">
+      <h2 id="payment-modal-title">Select Payment Method</h2>
+      <p id="payment-modal-sub">Fast & Secure via UPI</p>
+    </div>
+    <div class="modal-body">
+      <div id="payment-options-view">
+        <div class="payment-methods">
+          <button class="btn-payment btn-phonepe" onclick="processMethod('PhonePe')">
+            <span>🟣</span> PhonePe
+          </button>
+          <button class="btn-payment btn-gpay" onclick="processMethod('GPay')">
+            <span>🔴🟡🔵🟢</span> Google Pay
+          </button>
+        </div>
+        <div class="payment-divider">OR</div>
+        <button class="btn-secondary full-width" onclick="processMethod('Other UPI')">Other UPI ID / Scanner</button>
+      </div>
+
+      <div id="payment-processing-view" class="processing-view hidden">
+        <span class="processing-spinner">🔄</span>
+        <h3>Processing Payment...</h3>
+        <p>Please do not refresh the page.</p>
+      </div>
+
+      <div id="payment-success-view" class="payment-success-view hidden">
+        <span class="success-tick">✅</span>
+        <h3 id="payment-success-title">Payment Successful!</h3>
+        <p id="payment-success-msg">Your booking has been confirmed.</p>
+        <button class="btn-primary full-width" style="margin-top:20px" onclick="finalizePayment()">Return to Tara Astro
+          Vision</button>
+      </div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="style.css">
+  <script>
+    window.TAV_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+  </script>
+  <script src="I18n.js"></script>
+  <script src="auth.js"></script>
+  <script src="astro.js"></script>
+  <script src="app.js"></script>
+  <script src="booking.js"></script>
+
+  <!-- ═══════════════════ PAGE: POOJAS ═══════════════════ -->
+  <div class="page hidden" id="page-poojas">
+    <div class="page-hero">
+      <h1 class="page-hero-title">🪔 Poojas</h1>
+      <p class="page-hero-sub">Sacred weekly rituals performed with devotion and Vedic tradition</p>
+    </div>
+    <div class="container poojas-container">
+
+      <!--MONDAY-->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header monday">
+          <div class="deity-icon deity-shiva">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(124,140,248,0.18)" stroke="#7c8cf8" stroke-width="1.5" />
+              <clipPath id="shiva-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.shivkhori.in/wp-content/uploads/2025/10/lord-shiva.webp" x="4" y="4" width="56"
+                height="56" clip-path="url(#shiva-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Monday</h2>
+            <p>Lord Shiva</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Siva Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes negative karma and brings peace</div>
+            <div class="pooja-price">₹316</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Siva Abhishekam',316)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Siva Astottara Pooja</div>
+            <div class="pooja-benefits">✦ Mental peace and divine blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Siva Astottara Pooja',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Ekadasa Rudrabhishekam</div>
+            <div class="pooja-benefits">✦ Powerful Shiva blessings and removal of obstacles</div>
+            <div class="pooja-price">₹516</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Ekadasa Rudrabhishekam',516)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Mon)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUESDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header tuesday">
+          <div class="deity-icon deity-hanuman">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+              <clipPath id="hanuman-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://ytdtemple.com/images/about/hanuman.jpg" x="4" y="4" width="56" height="56"
+                clip-path="url(#hanuman-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Tuesday</h2>
+            <p>Lord Hanuman</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">108 Aaku Pooja</div>
+            <div class="pooja-benefits">✦ Courage and protection</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('108 Aaku Pooja',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Anjaneya Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes fear and protects from enemies</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Anjaneya Abhishekam',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Anjaneya Astottaram</div>
+            <div class="pooja-benefits">✦ Divine strength and blessings of Hanuman</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Anjaneya Astottaram',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Tue)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEDNESDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header wednesday">
+          <div class="deity-icon deity-ganesha">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(52,211,153,0.18)" stroke="#34d399" stroke-width="1.5" />
+              <clipPath id="ganesha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://i.pinimg.com/736x/48/96/b7/4896b72ec65e2a7d7407415818d3ca2f.jpg" x="4" y="4"
+                width="56" height="56" clip-path="url(#ganesha-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Wednesday</h2>
+            <p>Lord Vinayaka</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Ganesh Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes obstacles and brings success</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Ganesh Abhishekam',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Ganesh Astottaram</div>
+            <div class="pooja-benefits">✦ Wisdom, prosperity and new beginnings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Ganesh Astottaram',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Wed)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+      <!-- THURSDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header thursday">
+          <div class="deity-icon deity-sai">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" stroke-width="1.5" />
+              <clipPath id="sai-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGbZAJ24In8Lxha-DsUQcT4pFMKg7L-HGSdw&s"
+                x="4" y="4" width="56" height="56" clip-path="url(#sai-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Thursday</h2>
+            <p>Sai Baba</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Sai Astottara Pooja</div>
+            <div class="pooja-benefits">✦ Peace and prosperity</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Sai Astottara Pooja',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Sai Abhishekam</div>
+            <div class="pooja-benefits">✦ Grace of Sai Baba and inner harmony</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Sai Abhishekam',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Thu)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRIDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header friday">
+          <div class="deity-icon deity-lalitha">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(244,114,182,0.18)" stroke="#f472b6" stroke-width="1.5" />
+              <clipPath id="lalitha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.svtsydney.org/wp-content/uploads/2022/01/1675133182246blob-236x300.png" x="4"
+                y="4" width="56" height="56" clip-path="url(#lalitha-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Friday</h2>
+            <p>Lalitha Devi</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Kumkum Archana</div>
+            <div class="pooja-benefits">✦ Wealth and divine feminine blessings</div>
+            <div class="pooja-price">₹316</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Kumkum Archana',316)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Lalitha Devi Abhishekam</div>
+            <div class="pooja-benefits">✦ Grace of the Divine Mother</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Lalitha Devi Abhishekam',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Lalitha Devi Astottaram</div>
+            <div class="pooja-benefits">✦ Beauty, abundance and love</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Lalitha Devi Astottaram',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Sri Chakra Pooja</div>
+            <div class="pooja-benefits">✦ Supreme cosmic energy and liberation</div>
+            <div class="pooja-price">₹516</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Sri Chakra Pooja',516)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SATURDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header saturday">
+          <div class="deity-icon deity-venkata">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+              <clipPath id="venkata-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://vedicfeed.com/wp-content/uploads/2020/11/venkateswara-tirupari-balaji-e1605084649179.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#venkata-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Saturday</h2>
+            <p>Lord Venkateswara</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Venkateswara Abhishekam</div>
+            <div class="pooja-benefits">✦ Financial stability and removal of karmic obstacles</div>
+            <div class="pooja-price">₹216</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Venkateswara Abhishekam',216)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Venkateswara Astottaram</div>
+            <div class="pooja-benefits">✦ Divine grace and spiritual elevation</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Venkateswara Astottaram',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Sat)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUNDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header sunday">
+          <div class="deity-icon deity-surya">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,146,60,0.18)" stroke="#fb923c" stroke-width="1.5" />
+              <clipPath id="surya-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRiERS_mIyJ0Wb-fV7lBZEqDVJK4GoyW2QyzQ&s"
+                x="4" y="4" width="56" height="56" clip-path="url(#surya-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Sunday</h2>
+            <p>Surya / Aditya</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Surya Astottaram</div>
+            <div class="pooja-benefits">✦ Health, vitality and leadership strength</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Surya Astottaram',116)">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Aditya Hrudayam Parayana</div>
+            <div class="pooja-benefits">✦ Inner radiance and courage</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Aditya Hrudayam Parayana',116)">📋 Book
+              Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button class="btn-add-cart" onclick="startPoojaBooking('Gotra Nama Pooja (Sun)',116)">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+
+
+
+  <!-- ═══════════════════ PAGE: HOMAMS ═══════════════════ -->
+  <div class="page hidden" id="page-homams">
+    <div class="page-hero">
+      <h1 class="page-hero-title">🔥 Sacred Homams</h1>
+      <p class="page-hero-sub">Ancient fire rituals for protection, prosperity and spiritual power</p>
+    </div>
+    <div class="container homams-container">
+      <div class="homam-grid">
+        <div class="homam-card">
+          <div class="homam-icon">️
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(244,114,182,0.18)" stroke="#f472b6" stroke-width="1.5" />
+                <clipPath id="pratyangira-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://poojahomam.org/cdn/shop/products/channels4_profile.jpg?v=1676342123" x="4"
+                  y="4" width="56" height="56" clip-path="url(#pratyangira-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/prathyangira-homam">Pratyangira Homam</a>
+          <div class="homam-benefits">Protection from evil forces and negative energies</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Pratyangira Homam',2000)">📋
+            Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+                <clipPath id="kali-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ7_FmUfKel8SwG5ReRM_flSAff-spyvYmQmg&s" x="4"
+                  y="4" width="56" height="56" clip-path="url(#kali-clip)" preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/kali-homam">Kali Homam</a>
+          <div class="homam-benefits">Dissolution of fear, fierce protection, and spiritual liberation</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Kali Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(52,211,153,0.18)" stroke="#34d399" stroke-width="1.5" />
+                <clipPath id="tara-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://static.sanatan.org/wp-content/uploads/sites/6/2021/05/19220122/Tarapith.jpg" x="4"
+                  y="4" width="56" height="56" clip-path="url(#tara-clip)" preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/tara-homam">Tara Homam</a>
+          <div class="homam-benefits">Rescue from danger, clarity, and compassionate wisdom</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Tara Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" stroke-width="1.5" />
+                <clipPath id="chinnamasta-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://i0.wp.com/hindupad.com/wp-content/uploads/2013/08/Chinnamasta-Devi-Mahavidya.jpg?fit=352%2C500&ssl=1" x="4"
+                  y="4" width="56" height="56" clip-path="url(#chinnamasta-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/chinnamasta-homam">Chinnamasta Homam</a>
+          <div class="homam-benefits">Victory over ego, vital energy (kuṇḍalinī), and radical transformation</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Chinnamasta Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+                <clipPath id="bhairavi-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://sanity-admin.rudraksha-ratna.com/static/images/blogs/Bhairavi.jpg" x="4"
+                  y="4" width="56" height="56" clip-path="url(#bhairavi-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/bhairavi-homam">Tripura Bhairavi Homam</a>
+          <div class="homam-benefits">Learning, tapas, and the fire of transformative knowledge</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Bhairavi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(124,140,248,0.18)" stroke="#7c8cf8" stroke-width="1.5" />
+                <clipPath id="bhagalamukhi-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://i.pinimg.com/736x/8f/ea/f8/8feaf8a4ec4b4bc6286919964e4323f6.jpg" x="4"
+                  y="4" width="56" height="56" clip-path="url(#bhagalamukhi-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/bhagalamukhi-homam">Bagalamukhi Homam</a>
+          <div class="homam-benefits">Silencing opposition, legal success, and protection of speech</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Bhagalamukhi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(244,114,182,0.18)" stroke="#f472b6" stroke-width="1.5" />
+                <clipPath id="shodasi-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR-vSNf4dePGk9BCIyfwyHjE2m-yRkSgx_Z5GapUyOs8w&s=10" x="4"
+                  y="4" width="56" height="56" clip-path="url(#shodasi-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/shodasi-homam">Shodashi Homam</a>
+          <div class="homam-benefits">Śrī Vidyā grace, beauty, harmony, and supreme śakti</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Shodashi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+                <clipPath id="matangi-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="data:image/jpeg;base64,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" x="4"
+                  y="4" width="56" height="56" clip-path="url(#matangi-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/matangi-homam">Matangi Homam</a>
+          <div class="homam-benefits">Speech, arts, knowledge, and dignified influence</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Matangi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+                <clipPath id="dhoomavathi-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTeYhF1seaRlubHipHJiWtj4TyEERyzDNHhhg&s" x="4"
+                  y="4" width="56" height="56" clip-path="url(#dhoomavathi-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/dhoomavathi-homam">Dhoomavathi Homam</a>
+          <div class="homam-benefits">Dispelling illusion, widow/widower śānti, and humble wisdom</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Dhoomavathi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(124,140,248,0.18)" stroke="#7c8cf8" stroke-width="1.5" />
+                <clipPath id="bhuvaneswari-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTUnLavLSr0ILH_K1qBqXFHVnWlysG5AMI2mA&s" x="4"
+                  y="4" width="56" height="56" clip-path="url(#bhuvaneswari-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/bhuvaneswari-homam">Bhuvaneswari Homam</a>
+          <div class="homam-benefits">Cosmic nourishment, space, and expansion of consciousness</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Bhuvaneswari Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+                <clipPath id="kamalatmika-clip">
+                  <circle cx="32" cy="32" r="28" />
+                </clipPath>
+                <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS55fnuwu5-zQRNw0AVfZYr2PCrovV-TTFylQ&̉Aq1" x="4"
+                  y="4" width="56" height="56" clip-path="url(#kamalatmika-clip)"
+                  preserveAspectRatio="xMidYMid slice" />
+              </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/kamalatmika-homam">Kamalatmika Homam</a>
+          <div class="homam-benefits">Wealth, purity, lotus grace, and sāttvika prosperity</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Kamalatmika Homam',2000)">📋 Book Now</button>
+        </div>
+
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+              <clipPath id="kalabhairava-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://thumbs.dreamstime.com/b/nepal-kathmandu-bas-kala-bhairava-durbar-square-64344711.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#kalabhairava-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/kalabhairava-homam">Kala Bhairava Homam</a>
+          <div class="homam-benefits">Protection from fear and enemies, victory over adversaries</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Kala Bhairava Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(52,211,153,0.18)" stroke="#34d399" stroke-width="1.5" />
+              <clipPath id="lakshmi-ganapathi-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.templepurohit.com/wp-content/uploads/2016/10/Lakshmi-Ganesha-Relationship.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#lakshmi-ganapathi-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/lakshmi-ganapathi-homam">Lakshmi Ganapathi
+            Homam</a>
+          <div class="homam-benefits">Wealth creation and removal of all obstacles</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Lakshmi Ganapathi Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" stroke-width="1.5" />
+              <clipPath id="navagraha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7jTKeWeQwsHTBR-O1GqYGPV4A6l1WN6lw1Q&s"
+                x="4" y="4" width="56" height="56" clip-path="url(#navagraha-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/navagraha-homam">Navagraha Homam</a>
+          <div class="homam-benefits">Balance and harmonize all nine planetary energies</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Navagraha Homam',2000)">📋
+            Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(244,114,182,0.18)" stroke="#f472b6" stroke-width="1.5" />
+              <clipPath id="mrityunjaya-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://cdn.shopaccino.com/rudraksha-center/products/mrutyujayjappuja-697600_l.jpg?v=523"
+                x="4" y="4" width="56" height="56" clip-path="url(#mrityunjaya-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/maha-mrityunjaya-homam">Maha Mrityunjaya
+            Homam</a>
+          <div class="homam-benefits">Health, longevity and victory over disease</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Maha Mrityunjaya Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+              <clipPath id="lakshmi-narasimha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://www.harivara.com/wp-content/uploads/2016/11/Lakshmi-Narasimha-Homa-Harivara-Kannada-300x300.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#lakshmi-narasimha-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/lakshmi-narasimha-homam">Lakshmi Narasimha
+            Homam</a>
+          <div class="homam-benefits">Divine protection and material prosperity</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Lakshmi Narasimha Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+              <clipPath id="chandi-mula-mantra-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://miro.medium.com/1*3AEiLMnvlE2WQNE933-RUQ.jpeg" x="4" y="4" width="56" height="56"
+                clip-path="url(#chandi-mula-mantra-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/chandi-mula-mantra-homam">Chandi Mula Mantra
+            Homam</a>
+          <div class="homam-benefits">Removes powerful negative forces and black magic</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Chandi Mula Mantra Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(124,140,248,0.18)" stroke="#7c8cf8" stroke-width="1.5" />
+              <clipPath id="dattatreya-mula-mantra-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://rukminim2.flixcart.com/image/480/640/xif0q/religious-frame/z/j/k/13-5-dattatreya-03-rv-sales-original-imaghh4sk8myj7wh.jpeg?q=90"
+                x="4" y="4" width="56" height="56" clip-path="url(#dattatreya-mula-mantra-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/dattatreya-mula-mantra-homam">Dattatreya Mula
+            Mantra Homam</a>
+          <div class="homam-benefits">Spiritual wisdom, guru blessings and liberation</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Dattatreya Mula Mantra Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+              <clipPath id="sudarshana-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://www.shutterstock.com/image-vector/detailed-vector-illustration-hindu-god-260nw-2671374079.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#sudarshana-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/sudarsana-homam">Sudarshana Homam</a>
+          <div class="homam-benefits">Removes negativity, obstacles and grants divine protection</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Sudarshana Homam',2000)">📋
+            Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+              <clipPath id="rudra-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://t4.ftcdn.net/jpg/19/02/42/15/360_F_1902421571_ckVsKYKrg8yhjsRMOlX9D1eAU1VZQSNN.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#rudra-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/rudra-homam">Rudra Homam</a>
+          <div class="homam-benefits">Divine blessings of Lord Shiva and cosmic healing</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Rudra Homam',2000)">📋 Book
+            Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(52,211,153,0.18)" stroke="#34d399" stroke-width="1.5" />
+              <clipPath id="medha-dakshina-murthy-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.vedadhara.com/assets/images/medha-dakshinamurthy-homa.webp" x="4" y="4"
+                width="56" height="56" clip-path="url(#medha-dakshina-murthy-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/medha-dakshina-murthy-homam">Medha Dakshina
+            Murthy Homam</a>
+          <div class="homam-benefits">Knowledge, intelligence and academic excellence</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart"
+            onclick="startHomamBooking(this,'Medha Dakshina Murthy Homam',2000)">📋 Book Now</button>
+        </div>
+        <div class="homam-card">
+          <div class="homam-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" stroke-width="1.5" />
+              <clipPath id="vaarahi-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://www.omspiritualshop.com/cdn/shop/articles/33_32e2b453-16e3-450f-b807-3e86380d6600_1200x1200.jpg?v=1741582654"
+                x="4" y="4" width="56" height="56" clip-path="url(#vaarahi-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <a class="homam-name homam-name-link" href="homam/index.html#/vaarahi-homam">Varahi Homam</a>
+          <div class="homam-benefits">Protection, success and victory over enemies</div>
+          <div class="homam-price">₹2000 <span class="per-person">per person</span></div>
+          <div class="homam-qty-row"><label>Persons:</label><input type="number" class="homam-qty" value="1" min="1"
+              max="100"></div><button class="btn-add-cart" onclick="startHomamBooking(this,'Varahi Homam',2000)">📋 Book
+            Now</button>
+        </div>
+      </div>
+      <p class="homam-note">📌 NOTE: Each homam cost is for a single person.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PAGE: BOOKING FORM ═══════════════════ -->
+  <div class="page hidden" id="page-booking-form">
+    <div class="page-hero">
+      <h1 class="page-hero-title">📋 Participant Details</h1>
+      <p class="page-hero-sub">Please fill in the details of all participants. The person making the booking must be
+        Participant 1.</p>
+    </div>
+    <div class="container booking-form-container">
+      <div id="bookingSummary" class="booking-summary"></div>
+      <form id="bookingParticipantForm" onsubmit="submitBookingForm(event)" class="booking-form">
+        <div id="bookingFormContainer"></div>
+        <div id="addParticipantContainer" class="add-participant-container"></div>
+        <div id="bookingFormError" class="form-error hidden"></div>
+        <button type="submit" class="btn-primary btn-submit-details full-width">Submit Details &amp; Continue to
+          Payment</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PAGE: PAYMENT ═══════════════════ -->
+  <div class="page hidden" id="page-payment">
+    <div class="page-hero">
+      <h1 class="page-hero-title" id="paymentPageTitle">Secure Payment</h1>
+      <p class="page-hero-sub" id="paymentPageSub">Complete your booking</p>
+    </div>
+    <div class="container payment-page-container">
+      <div id="paymentPageContent"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PAGE: CONFIRMATION ═══════════════════ -->
+  <div class="page hidden" id="page-confirmation">
+    <div class="page-hero">
+      <h1 class="page-hero-title">✅ Booking Confirmed</h1>
+      <p class="page-hero-sub">Thank you for your booking</p>
+    </div>
+    <div class="container confirmation-container">
+      <div id="confirmationContent"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PAGE: CONSULT ASTROLOGER ═══════════════════ -->
+  <div class="page hidden" id="page-consult">
+    <div class="page-hero">
+      <h1 class="page-hero-title">🔮 Personal Astrology Consultation</h1>
+      <p class="page-hero-sub">Direct guidance from our expert Vedic astrologers</p>
+    </div>
+    <div class="container consult-container">
+
+      <div class="consult-areas">
+        <h2 class="section-heading">Areas of Guidance</h2>
+        <div class="consult-topics-grid">
+          <div class="consult-topic-card">
+            <div class="topic-icon">💼</div>
+            <div class="topic-name">Career &amp; Profession</div>
+            <p>Understand your strengths, timing and planetary support for career growth.</p>
+          </div>
+          <div class="consult-topic-card">
+            <div class="topic-icon">💍</div>
+            <div class="topic-name">Marriage &amp; Relationships</div>
+            <p>Compatibility analysis, auspicious timing and remedies for harmony.</p>
+          </div>
+          <div class="consult-topic-card">
+            <div class="topic-icon">🏠</div>
+            <div class="topic-name">Family &amp; Children</div>
+            <p>Guidance on family matters, children's education and ancestral karma.</p>
+          </div>
+          <div class="consult-topic-card">
+            <div class="topic-icon">🕉️</div>
+            <div class="topic-name">Spiritual Growth</div>
+            <p>Discover your dharmic path, ideal mantras and spiritual practices.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="consult-cta-banner">
+        <div class="cta-text">
+          <h3>Need Immediate Guidance?</h3>
+          <p>Chat directly with our astrologer on WhatsApp for a quick consultation.</p>
+        </div>
+        <a href="https://wa.me/919999999999?text=Hello%2C%20I%20would%20like%20to%20consult%20an%20astrologer"
+          target="_blank" class="btn-whatsapp">
+          <span>💬</span> Chat with Astrologer
+        </a>
+      </div>
+
+      <div class="consult-form-section">
+        <h2 class="section-heading">Book a Consultation</h2>
+        <form id="consultForm" onsubmit="submitConsult(event)" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Full Name <span class="required">*</span></label>
+              <input type="text" id="c-name" class="form-input" placeholder="Your full name" required>
+            </div>
+            <div class="form-group">
+              <label>Email Address <span class="required">*</span></label>
+              <input type="email" id="c-email" class="form-input" placeholder="your@email.com" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone Number <span class="required">*</span></label>
+              <input type="tel" id="c-phone" class="form-input" placeholder="+91 XXXXX XXXXX" required>
+            </div>
+            <div class="form-group">
+              <label>Preferred Consultation Type <span class="required">*</span></label>
+              <select id="c-type" class="form-input" required>
+                <option value="">Select type</option>
+                <option value="phone">📞 Phone Call</option>
+                <option value="personal">🤝 Personal Visit</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Your Message <span class="required">*</span></label>
+            <textarea id="c-message" class="form-input consult-textarea"
+              placeholder="Briefly describe what you would like guidance on..." required></textarea>
+          </div>
+          <div id="consult-error" class="form-error hidden">Please fill in all required fields.</div>
+          <button type="submit" class="btn-primary full-width">Pay &amp; Book Consultation</button>
+        </form>
+        <div id="consult-success" class="jathakam-success hidden">
+          <div class="success-icon">✅</div>
+          <h3>Consultation Booked!</h3>
+          <p>Thank you! Our astrologer will contact you within 24 hours at your preferred mode.</p>
+          <button class="btn-secondary" onclick="resetConsultForm()">Book Another</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SITE-WIDE FOOTER ═══════════════════ -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-contact">
+        <h3>Contact Us</h3>
+        <p>Email: <a href="mailto:taraastrovision123@gmail.com">taraastrovision123@gmail.com</a></p>
+        <p>Phone: <a href="tel:9014308190">9014308190</a></p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+
+</html>

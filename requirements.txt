@@ -1,0 +1,24 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic[email]==2.7.1
+python-multipart==0.0.9
+
+# Vedic Astrology Engine — Swiss Ephemeris
+pyswisseph==2.10.3.2
+
+# JWT Authentication (production)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Database
+sqlalchemy==2.0.30
+alembic==1.13.1
+
+# For PostgreSQL (production)
+# psycopg2-binary==2.9.9
+
+# CORS & Env
+python-dotenv==1.0.1
+
+# Email (Resend - recommended, or use SMTP)
+resend>=2.0.0

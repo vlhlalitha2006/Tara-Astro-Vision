@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Poojas — Tara Astro Vision</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Noto+Sans+Telugu:wght@300;400;500&family=Noto+Sans+Devanagari:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body data-page="pooja">
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <img src="logo.jpg" alt="Tara Astro Vision Logo" class="logo-om">
+        <span class="logo-text" data-i18n="brand">Tara Astro Vision</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html" class="nav-link" data-i18n="nav_home">Home</a>
+        <a href="horoscope.html" class="nav-link" data-i18n="nav_horoscope">Horoscope</a>
+        <a href="kundli.html" class="nav-link nav-link-protected" data-i18n="nav_kundli">Kundli</a>
+        <a href="dashboard.html" class="nav-link nav-link-protected" data-i18n="nav_dashboard">Dashboard</a>
+        <a href="pooja.html" class="nav-link active">Poojas</a>
+        <a href="homam.html" class="nav-link">Homams</a>
+        <a href="consult.html" class="nav-link">Consult Astrologer</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </div>
+      <div class="nav-right">
+        <div class="lang-switcher" id="langSwitcher">
+          <button type="button" class="lang-btn" aria-expanded="false" aria-haspopup="true">
+            <span id="currentLangFlag">🇮🇳</span>
+            <span id="currentLangCode">EN</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+              <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" />
+            </svg>
+          </button>
+          <div class="lang-menu hidden" id="langMenu">
+            <button type="button" data-lang="en"><span>🇬🇧</span> English</button>
+            <button type="button" data-lang="te"><span>🇮🇳</span> తెలుగు</button>
+            <button type="button" data-lang="hi"><span>🇮🇳</span> हिंदी</button>
+            <button type="button" data-lang="ta"><span>🇮🇳</span> தமிழ்</button>
+            <button type="button" data-lang="ml"><span>🇮🇳</span> മലയാളം</button>
+            <button type="button" data-lang="kn"><span>🇮🇳</span> ಕನ್ನಡ</button>
+            <button type="button" data-lang="mr"><span>🇮🇳</span> मराठी</button>
+          </div>
+        </div>
+        <div class="auth-buttons" id="authButtons">
+          <button type="button" class="btn-login" data-i18n="login">Login</button>
+          <button type="button" class="btn-register" data-i18n="register">Register</button>
+        </div>
+        <div class="user-menu hidden" id="userMenu">
+          <button type="button" class="user-avatar-btn">
+            <span class="avatar-circle" id="avatarInitial">A</span>
+            <span id="userName">User</span>
+          </button>
+          <div class="user-dropdown hidden" id="userDropdown">
+            <a href="dashboard.html">Dashboard</a>
+            <a href="dashboard.html">Profile</a>
+            <a href="#" id="logoutLink">Logout</a>
+          </div>
+        </div>
+        <button type="button" class="cart-btn" id="cartBtn">
+          🛒 <span class="cart-count" id="cartCount">0</span>
+        </button>
+        <button type="button" class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+  <div class="cart-overlay hidden" id="cartOverlay"></div>
+  <div class="cart-sidebar hidden" id="cartSidebar">
+    <div class="cart-header">
+      <h3>🛒 Your Cart</h3>
+      <button type="button" class="cart-close-btn" id="cartCloseBtn" aria-label="Close cart">✕</button>
+    </div>
+    <div class="cart-items" id="cartItems">
+      <div class="cart-empty" id="cartEmpty">
+        <p>Your cart is empty</p>
+        <p class="cart-empty-emoji" aria-hidden="true">🛒</p>
+      </div>
+    </div>
+    <div class="cart-footer hidden" id="cartFooter">
+      <div class="cart-total-row"><span>Total:</span><span id="cartTotal" class="cart-total-amt">₹0</span></div>
+      <div class="cart-footer-inner">
+        <button type="button" class="btn-primary full-width" id="btnProceedCartPay">Pay &amp; Finalize Items</button>
+        <button type="button" class="btn-secondary full-width" id="btnProceedCartQuote">Request Quote (Email)</button>
+        <button type="button" class="btn-secondary full-width" id="btnClearCart">Clear Cart</button>
+      </div>
+    </div>
+  </div>
+  <main class="site-main">
+    <div class="page-hero">
+      <h1 class="page-hero-title">🪔 Poojas</h1>
+      <p class="page-hero-sub">Sacred weekly rituals performed with devotion and Vedic tradition</p>
+    </div>
+    <div class="container poojas-container">
+
+      <!--MONDAY-->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header monday">
+          <div class="deity-icon deity-shiva">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(124,140,248,0.18)" stroke="#7c8cf8" stroke-width="1.5" />
+              <clipPath id="shiva-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.shivkhori.in/wp-content/uploads/2025/10/lord-shiva.webp" x="4" y="4" width="56"
+                height="56" clip-path="url(#shiva-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Monday</h2>
+            <p>Lord Shiva</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Siva Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes negative karma and brings peace</div>
+            <div class="pooja-price">₹316</div>
+            <button type="button" class="btn-add-cart" data-add-cart data-name="Siva Abhishekam" data-price="316">🛒 Add to Cart</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Siva Astottara Pooja</div>
+            <div class="pooja-benefits">✦ Mental peace and divine blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-add-cart data-name="Siva Astottara Pooja" data-price="116">🛒 Add to Cart</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Ekadasa Rudrabhishekam</div>
+            <div class="pooja-benefits">✦ Powerful Shiva blessings and removal of obstacles</div>
+            <div class="pooja-price">₹516</div>
+            <button type="button" class="btn-add-cart" data-add-cart data-name="Ekadasa Rudrabhishekam" data-price="516">🛒 Add to Cart</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-add-cart data-name="Gotra Nama Pooja (Mon)" data-price="116">🛒 Add to Cart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUESDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header tuesday">
+          <div class="deity-icon deity-hanuman">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(248,113,113,0.18)" stroke="#f87171" stroke-width="1.5" />
+              <clipPath id="hanuman-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://ytdtemple.com/images/about/hanuman.jpg" x="4" y="4" width="56" height="56"
+                clip-path="url(#hanuman-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Tuesday</h2>
+            <p>Lord Hanuman</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">108 Aaku Pooja</div>
+            <div class="pooja-benefits">✦ Courage and protection</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="108 Aaku Pooja" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Anjaneya Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes fear and protects from enemies</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Anjaneya Abhishekam" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Anjaneya Astottaram</div>
+            <div class="pooja-benefits">✦ Divine strength and blessings of Hanuman</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Anjaneya Astottaram" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Gotra Nama Pooja (Tue)" data-price="116">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEDNESDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header wednesday">
+          <div class="deity-icon deity-ganesha">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(52,211,153,0.18)" stroke="#34d399" stroke-width="1.5" />
+              <clipPath id="ganesha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://i.pinimg.com/736x/48/96/b7/4896b72ec65e2a7d7407415818d3ca2f.jpg" x="4" y="4"
+                width="56" height="56" clip-path="url(#ganesha-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Wednesday</h2>
+            <p>Lord Vinayaka</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Ganesh Abhishekam</div>
+            <div class="pooja-benefits">✦ Removes obstacles and brings success</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Ganesh Abhishekam" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Ganesh Astottaram</div>
+            <div class="pooja-benefits">✦ Wisdom, prosperity and new beginnings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Ganesh Astottaram" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Gotra Nama Pooja (Wed)" data-price="116">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+      <!-- THURSDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header thursday">
+          <div class="deity-icon deity-sai">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,191,36,0.18)" stroke="#fbbf24" stroke-width="1.5" />
+              <clipPath id="sai-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGbZAJ24In8Lxha-DsUQcT4pFMKg7L-HGSdw&s"
+                x="4" y="4" width="56" height="56" clip-path="url(#sai-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Thursday</h2>
+            <p>Sai Baba</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Sai Astottara Pooja</div>
+            <div class="pooja-benefits">✦ Peace and prosperity</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Sai Astottara Pooja" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Sai Abhishekam</div>
+            <div class="pooja-benefits">✦ Grace of Sai Baba and inner harmony</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Sai Abhishekam" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Gotra Nama Pooja (Thu)" data-price="116">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRIDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header friday">
+          <div class="deity-icon deity-lalitha">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(244,114,182,0.18)" stroke="#f472b6" stroke-width="1.5" />
+              <clipPath id="lalitha-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://www.svtsydney.org/wp-content/uploads/2022/01/1675133182246blob-236x300.png" x="4"
+                y="4" width="56" height="56" clip-path="url(#lalitha-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Friday</h2>
+            <p>Lalitha Devi</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Kumkum Archana</div>
+            <div class="pooja-benefits">✦ Wealth and divine feminine blessings</div>
+            <div class="pooja-price">₹316</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Kumkum Archana" data-price="316">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Lalitha Devi Abhishekam</div>
+            <div class="pooja-benefits">✦ Grace of the Divine Mother</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Lalitha Devi Abhishekam" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Lalitha Devi Astottaram</div>
+            <div class="pooja-benefits">✦ Beauty, abundance and love</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Lalitha Devi Astottaram" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Sri Chakra Pooja</div>
+            <div class="pooja-benefits">✦ Supreme cosmic energy and liberation</div>
+            <div class="pooja-price">₹516</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Sri Chakra Pooja" data-price="516">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SATURDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header saturday">
+          <div class="deity-icon deity-venkata">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(167,139,250,0.18)" stroke="#a78bfa" stroke-width="1.5" />
+              <clipPath id="venkata-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image
+                href="https://vedicfeed.com/wp-content/uploads/2020/11/venkateswara-tirupari-balaji-e1605084649179.jpg"
+                x="4" y="4" width="56" height="56" clip-path="url(#venkata-clip)"
+                preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Saturday</h2>
+            <p>Lord Venkateswara</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Venkateswara Abhishekam</div>
+            <div class="pooja-benefits">✦ Financial stability and removal of karmic obstacles</div>
+            <div class="pooja-price">₹216</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Venkateswara Abhishekam" data-price="216">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Venkateswara Astottaram</div>
+            <div class="pooja-benefits">✦ Divine grace and spiritual elevation</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Venkateswara Astottaram" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Gotra Nama Pooja (Sat)" data-price="116">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUNDAY -->
+      <div class="pooja-day-section">
+        <div class="pooja-day-header sunday">
+          <div class="deity-icon deity-surya">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="30" fill="rgba(251,146,60,0.18)" stroke="#fb923c" stroke-width="1.5" />
+              <clipPath id="surya-clip">
+                <circle cx="32" cy="32" r="28" />
+              </clipPath>
+              <image href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRiERS_mIyJ0Wb-fV7lBZEqDVJK4GoyW2QyzQ&s"
+                x="4" y="4" width="56" height="56" clip-path="url(#surya-clip)" preserveAspectRatio="xMidYMid slice" />
+            </svg>
+          </div>
+          <div>
+            <h2>Sunday</h2>
+            <p>Surya / Aditya</p>
+          </div>
+        </div>
+        <div class="pooja-cards-grid">
+          <div class="pooja-card">
+            <div class="pooja-name">Surya Astottaram</div>
+            <div class="pooja-benefits">✦ Health, vitality and leadership strength</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Surya Astottaram" data-price="116">📋 Book Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Aditya Hrudayam Parayana</div>
+            <div class="pooja-benefits">✦ Inner radiance and courage</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Aditya Hrudayam Parayana" data-price="116">📋 Book
+              Now</button>
+          </div>
+          <div class="pooja-card">
+            <div class="pooja-name">Gotra Nama Pooja</div>
+            <div class="pooja-benefits">✦ Family wellbeing and ancestral blessings</div>
+            <div class="pooja-price">₹116</div>
+            <button type="button" class="btn-add-cart" data-book-pooja data-name="Gotra Nama Pooja (Sun)" data-price="116">📋 Book Now</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-contact">
+        <h3>Contact Us</h3>
+        <p>Email: <a href="mailto:taraastrovision123@gmail.com">taraastrovision123@gmail.com</a></p>
+        <p>Phone: <a href="tel:9014308190">9014308190</a></p>
+      </div>
+    </div>
+  </footer>
+  <div class="modal-overlay hidden" id="modalOverlay"></div>
+  <div class="modal hidden" id="modal-login">
+    <button type="button" class="modal-close" aria-label="Close">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="login_title">Welcome Back</h2>
+      <p data-i18n="login_sub">Login to access your personal guidance</p>
+    </div>
+    <form class="modal-form" id="formLogin">
+      <div class="form-group">
+        <label data-i18n="email">Email</label>
+        <input type="email" id="loginEmail" required class="form-input" placeholder="your@email.com" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" id="loginPass" required class="form-input" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div class="modal-error hidden" id="loginError"></div>
+      <button type="submit" class="btn-primary full-width" data-i18n="login">Login</button>
+      <p class="modal-switch" data-i18n="no_account">Don't have an account?
+        <a href="#" data-open-modal="register" data-i18n="register_link">Register</a>
+      </p>
+    </form>
+  </div>
+  <div class="modal hidden" id="modal-register">
+    <button type="button" class="modal-close" aria-label="Close">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="register_title">Begin Your Journey</h2>
+      <p data-i18n="register_sub">Create your sacred account</p>
+    </div>
+    <form class="modal-form" id="formRegister">
+      <div class="form-group">
+        <label data-i18n="full_name">Full Name</label>
+        <input type="text" id="regName" required class="form-input" placeholder="Your Name" autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="email">Email</label>
+        <input type="email" id="regEmail" required class="form-input" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" id="regPass" required class="form-input" placeholder="Min 8 characters" minlength="8" autocomplete="new-password" />
+      </div>
+      <div class="modal-error hidden" id="registerError"></div>
+      <button type="submit" class="btn-primary full-width" data-i18n="register">Register</button>
+      <p class="modal-switch">Already have an account?
+        <a href="#" data-open-modal="login" data-i18n="login_link">Login</a>
+      </p>
+    </form>
+  </div>
+  <div class="modal hidden" id="modal-loginRequired">
+    <button type="button" class="modal-close" aria-label="Close">×</button>
+    <div class="modal-header">
+      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
+      <h2 data-i18n="auth_required">Login Required</h2>
+      <p data-i18n="auth_required_desc">Please login or register to access your personalized birth chart and predictions.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" data-open-modal="login" data-i18n="login">Login</button>
+      <button type="button" class="btn-secondary" data-open-modal="register" data-i18n="register">Register</button>
+    </div>
+  </div>
+  <div class="modal hidden" id="modal-loading">
+    <div class="loading-inner">
+      <div class="chakra-spinner">𑁍</div>
+      <p data-i18n="calculating">Calculating your cosmic positions...</p>
+    </div>
+  </div>
+  <div class="modal hidden" id="modal-payment">
+    <button type="button" class="modal-close" aria-label="Close">×</button>
+    <div class="modal-header">
+      <h2 id="payment-modal-title">Select Payment Method</h2>
+      <p id="payment-modal-sub">Fast &amp; Secure via UPI</p>
+    </div>
+    <div class="modal-body">
+      <div id="payment-options-view">
+        <div class="payment-methods">
+          <button type="button" class="btn-payment btn-phonepe" data-cart-pay="PhonePe"><span>🟣</span> PhonePe</button>
+          <button type="button" class="btn-payment btn-gpay" data-cart-pay="GPay"><span>🔴🟡🔵🟢</span> Google Pay</button>
+        </div>
+        <div class="payment-divider">OR</div>
+        <button type="button" class="btn-secondary full-width" data-cart-pay="Other UPI">Other UPI ID / Scanner</button>
+      </div>
+      <div id="payment-processing-view" class="processing-view hidden">
+        <span class="processing-spinner">🔄</span>
+        <h3>Processing Payment...</h3>
+        <p>Please do not refresh the page.</p>
+      </div>
+      <div id="payment-success-view" class="payment-success-view hidden">
+        <span class="success-tick">✅</span>
+        <h3 id="payment-success-title">Payment Successful!</h3>
+        <p id="payment-success-msg">Your booking has been confirmed.</p>
+        <button type="button" class="btn-primary full-width payment-success-actions" id="btnFinalizePayment">Return to Tara Astro Vision</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/main.js"></script>
+</body>
+</html>
