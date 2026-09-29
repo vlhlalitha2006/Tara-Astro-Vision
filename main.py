@@ -145,6 +145,7 @@ def init_db():
             id              TEXT    PRIMARY KEY,
             type            TEXT    NOT NULL,
             name            TEXT    NOT NULL,
+            customer_name   TEXT,
             price           REAL    NOT NULL,
             persons         INTEGER DEFAULT 1,
             participants    TEXT    NOT NULL,
@@ -152,15 +153,22 @@ def init_db():
             contact_phone   TEXT    NOT NULL,
             status          TEXT    DEFAULT 'confirmed',
             paid_at         TEXT,
-            created_at      TEXT    DEFAULT (datetime('now'))
+            created_at      TEXT    DEFAULT (datetime('now')),
+            razorpay_order_id TEXT,
+            razorpay_payment_id TEXT
         );
     """)
     conn.commit()
-    try:
-        c.execute("ALTER TABLE bookings ADD COLUMN scheduled_date TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
+    booking_columns = {row[1] for row in c.execute("PRAGMA table_info(bookings)")}
+    for column, column_type in (
+        ("scheduled_date", "TEXT"),
+        ("customer_name", "TEXT"),
+        ("razorpay_order_id", "TEXT"),
+        ("razorpay_payment_id", "TEXT"),
+    ):
+        if column not in booking_columns:
+            c.execute(f"ALTER TABLE bookings ADD COLUMN {column} {column_type}")
+    conn.commit()
     conn.close()
 
 init_db()
@@ -209,6 +217,8 @@ class BookingConfirm(BaseModel):
     contactPhone: str
     status: Optional[str] = "confirmed"
     paidAt: Optional[str] = None
+    razorpayOrderId: Optional[str] = None
+    razorpayPaymentId: Optional[str] = None
     pdfBase64: Optional[str] = None  # PDF receipt for email attachment
     scheduledDate: Optional[str] = None  # YYYY-MM-DD; same for all participants
 
@@ -573,7 +583,7 @@ SMTP_PASS = os.getenv("SMTP_PASS", "").strip()
 def send_email(to: str, subject: str, body: str, attachment: Optional[tuple] = None) -> bool:
     """
     Send email via Resend or SMTP.
-    attachment: (filename, base64_content) for PDF
+    attachment: (filename, base64_content[, content_type])
     """
     # Resend (supports attachments)
     if RESEND_API_KEY:
@@ -588,10 +598,11 @@ def send_email(to: str, subject: str, body: str, attachment: Optional[tuple] = N
                 "text": body,
             }
             if attachment:
-                filename, b64_content = attachment
+                filename, b64_content, *metadata = attachment
                 params["attachments"] = [{
                     "content": b64_content,
                     "filename": filename,
+                    "content_type": metadata[0] if metadata else "application/pdf",
                 }]
             resend.Emails.send(params)
             log.info(f"Email sent via Resend to {to}: {subject}")
@@ -617,8 +628,10 @@ def send_email(to: str, subject: str, body: str, attachment: Optional[tuple] = N
             msg.attach(MIMEText(body, "plain"))
 
             if attachment:
-                filename, b64_content = attachment
-                part = MIMEBase("application", "pdf")
+                filename, b64_content, *metadata = attachment
+                content_type = metadata[0] if metadata else "application/pdf"
+                maintype, subtype = content_type.split("/", 1)
+                part = MIMEBase(maintype, subtype)
                 part.set_payload(base64.b64decode(b64_content))
                 encoders.encode_base64(part)
                 part.add_header("Content-Disposition", f"attachment; filename={filename}")
@@ -648,11 +661,17 @@ async def confirm_booking(data: BookingConfirm, db=Depends(get_db)):
 
     try:
         db.execute(
-            """INSERT INTO bookings (id, type, name, price, persons, participants, contact_email, contact_phone, status, paid_at, scheduled_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (data.id, data.type, data.name, data.price, data.persons or 1,
-             json.dumps(data.participants), data.contactEmail, data.contactPhone,
-             data.status or "confirmed", data.paidAt, data.scheduledDate)
+                """INSERT INTO bookings (
+                         id, type, name, customer_name, price, persons, participants,
+                         contact_email, contact_phone, status, paid_at, scheduled_date,
+                         razorpay_order_id, razorpay_payment_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (data.id, data.type, data.name,
+                 data.participants[0].get("name") if data.participants else None,
+                 data.price, data.persons or 1, json.dumps(data.participants),
+                 data.contactEmail, data.contactPhone, data.status or "confirmed",
+                 data.paidAt, data.scheduledDate, data.razorpayOrderId,
+                 data.razorpayPaymentId)
         )
         db.commit()
     except Exception as e:

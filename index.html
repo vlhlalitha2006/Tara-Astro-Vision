@@ -24,17 +24,18 @@
         <span class="logo-text" data-i18n="brand">Tara Astro Vision</span>
       </a>
 
-      <div class="nav-links" id="navLinks">
-        <a href="#" class="nav-link" onclick="showPage('home')" data-i18n="nav_home">Home</a>
-        <a href="#" class="nav-link" onclick="showPage('horoscope')" data-i18n="nav_horoscope">Horoscope</a>
-        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('kundli')"
+      <nav class="nav-links" id="navLinks" aria-label="Main navigation">
+        <button type="button" class="nav-close-btn" onclick="closeNav()" aria-label="Close navigation menu">X</button>
+        <a href="#" class="nav-link" onclick="showPage('home'); return false" data-i18n="nav_home">Home</a>
+        <a href="#" class="nav-link" onclick="showPage('horoscope'); return false" data-i18n="nav_horoscope">Horoscope</a>
+        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('kundli'); return false"
           data-i18n="nav_kundli">Kundli</a>
-        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('dashboard')"
+        <a href="#" class="nav-link nav-link-protected" onclick="requireLogin('dashboard'); return false"
           data-i18n="nav_dashboard">Dashboard</a>
-        <a href="#" class="nav-link" onclick="showPage('poojas')">Poojas</a>
-        <a href="#" class="nav-link" onclick="showPage('homams')">Homams</a>
-        <a href="#" class="nav-link" onclick="showPage('consult')">Consult Astrologer</a>
-      </div>
+        <a href="#" class="nav-link" onclick="showPage('poojas'); return false">Pooja</a>
+        <a href="#" class="nav-link" onclick="showPage('homams'); return false">Homam</a>
+        <a href="#" class="nav-link" onclick="showPage('consult'); return false">Consult Astrologer</a>
+      </nav>
 
       <div class="nav-right">
         <!-- Language Switcher -->
@@ -77,7 +78,8 @@
         <button class="cart-btn" id="cartBtn" onclick="toggleCart()">
           🛒 <span class="cart-count" id="cartCount">0</span>
         </button>
-        <button class="hamburger" id="hamburger" onclick="toggleNav()">
+        <button type="button" class="hamburger" id="hamburger" onclick="toggleNav()" aria-controls="navLinks"
+          aria-expanded="false" aria-label="Open menu">
           <span></span><span></span><span></span>
         </button>
       </div>
@@ -1220,6 +1222,7 @@
         </div>
       </div>
       <p class="homam-note">📌 NOTE: Each homam cost is for a single person.</p>
+      <p class="homam-note">📌 NOTE: These homams cost is only for samuhika homam. If you want seperate homam, please contact us.</p>
     </div>
   </div>
 
@@ -1298,16 +1301,7 @@
         </div>
       </div>
 
-      <div class="consult-cta-banner">
-        <div class="cta-text">
-          <h3>Need Immediate Guidance?</h3>
-          <p>Chat directly with our astrologer on WhatsApp for a quick consultation.</p>
-        </div>
-        <a href="https://wa.me/919999999999?text=Hello%2C%20I%20would%20like%20to%20consult%20an%20astrologer"
-          target="_blank" class="btn-whatsapp">
-          <span>💬</span> Chat with Astrologer
-        </a>
-      </div>
+      
 
       <div class="consult-form-section">
         <h2 class="section-heading">Book a Consultation</h2>
@@ -1361,7 +1355,7 @@
       <div class="footer-contact">
         <h3>Contact Us</h3>
         <p>Email: <a href="mailto:taraastrovision123@gmail.com">taraastrovision123@gmail.com</a></p>
-        <p>Phone: <a href="tel:9014308190">9014308190</a></p>
+        <p>Phone: <a href="tel:9908466610">9908466610</a></p>
       </div>
     </div>
   </footer>

@@ -20,10 +20,14 @@ function showPage(pageId) {
   }
 
   // Update nav active states
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => {
+    l.classList.remove('active');
+    if (l.getAttribute('onclick') && l.getAttribute('onclick').includes(`('${pageId}')`)) {
+      l.classList.add('active');
+    }
+  });
 
-  // Close mobile nav
-  document.getElementById('navLinks').classList.remove('open');
+  closeNav();
 
   // Page-specific init
   if (pageId === 'dashboard') {
@@ -32,8 +36,30 @@ function showPage(pageId) {
   }
 }
 
+function closeNav() {
+  const links = document.getElementById('navLinks');
+  const hamburger = document.getElementById('hamburger');
+  if (links) links.classList.remove('open');
+  if (hamburger) {
+    hamburger.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    hamburger.setAttribute('aria-label', 'Open menu');
+  }
+  document.body.classList.remove('nav-open');
+}
+
 function toggleNav() {
-  document.getElementById('navLinks').classList.toggle('open');
+  const links = document.getElementById('navLinks');
+  if (!links) return;
+  const willOpen = !links.classList.contains('open');
+  links.classList.toggle('open', willOpen);
+  const hamburger = document.getElementById('hamburger');
+  if (hamburger) {
+    hamburger.classList.toggle('open', willOpen);
+    hamburger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    hamburger.setAttribute('aria-label', willOpen ? 'Close menu' : 'Open menu');
+  }
+  document.body.classList.toggle('nav-open', willOpen);
 }
 
 // ────────────────────────────────────────────
@@ -55,6 +81,7 @@ function showModal(id) {
   overlay.classList.remove('hidden');
   modal.classList.remove('hidden');
   activeModal = id;
+  closeNav();
 
   // Clear errors
   const err = modal.querySelector('.modal-error');
@@ -72,7 +99,17 @@ function closeModal() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') {
+    closeModal();
+    closeNav();
+  }
+});
+
+document.addEventListener('click', e => {
+  const links = document.getElementById('navLinks');
+  if (links && links.classList.contains('open') && e.target === links) {
+    closeNav();
+  }
 });
 
 // ────────────────────────────────────────────
@@ -422,6 +459,7 @@ function renderPlanetTable(chartData) {
   const langKey = `name_${currentLang}`;
 
   let html = `<h3>${t('planet_positions')}</h3>
+  <div class="table-responsive" style="overflow-x: auto;">
   <table class="planet-table">
     <thead>
       <tr>
@@ -446,7 +484,7 @@ function renderPlanetTable(chartData) {
     </tr>`;
   }
 
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 
@@ -658,6 +696,7 @@ window.renderRasiChips = renderRasiChips;
 // Make functions globally accessible for HTML onclick handlers
 window.showPage = showPage;
 window.toggleNav = toggleNav;
+window.closeNav = closeNav;
 window.showModal = showModal;
 window.closeModal = closeModal;
 window.selectRasi = selectRasi;

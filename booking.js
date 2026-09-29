@@ -525,6 +525,8 @@ function sendBookingEmails(booking, pdfBase64) {
     contactPhone: booking.contactPhone,
     status: booking.status,
     paidAt: booking.paidAt,
+    razorpayOrderId: booking.razorpayOrderId || null,
+    razorpayPaymentId: booking.razorpayPaymentId || null,
     scheduledDate: booking.scheduledDate || null
   };
   if (pdfBase64) payload.pdfBase64 = pdfBase64;
