@@ -2023,8 +2023,7 @@ function submitConsult(e) {
 
   errEl.classList.add('hidden');
 
-  // Launch payment flow instead of immediate email
-  showPaymentModal('Consultation Booking', 'Fee: ₹501 (Personal Guidance)');
+  showPaymentUnavailable();
 }
 
 function resetConsultForm() {
@@ -2070,6 +2069,14 @@ function addHomamToCart(btn, name, basePrice) {
   renderCart();
   showCartFeedback();
 }
+
+document.addEventListener('click', e => {
+  const card = e.target.closest('.homam-card');
+  if (!card || e.target.closest('a, button, input, select, textarea, label')) return;
+
+  const detailLink = card.querySelector('a.homam-name-link');
+  if (detailLink) window.location.href = detailLink.href;
+});
 
 function removeFromCart(id) {
   cart = cart.filter(i => i.id !== id);
@@ -2216,81 +2223,15 @@ window.clearCart = clearCart;
 window.toggleCart = toggleCart;
 window.proceedCheckout = proceedCheckout;
 
-// ────────────────────────────────────────────
-// PAYMENT SYSTEM
-// ────────────────────────────────────────────
-let paymentContext = null;
-
-function showPaymentModal(title, sub) {
-  paymentContext = title.toLowerCase().includes('consult') ? 'consult' : 'cart';
-
-  const titleEl = document.getElementById('payment-modal-title');
-  const subEl = document.getElementById('payment-modal-sub');
-  if (titleEl) titleEl.textContent = title;
-  if (subEl) subEl.textContent = sub;
-  
-  // Reset views
-  document.getElementById('payment-options-view')?.classList.remove('hidden');
-  document.getElementById('payment-processing-view')?.classList.add('hidden');
-  document.getElementById('payment-success-view')?.classList.add('hidden');
-
-  showModal('payment');
-}
-
-function processMethod(method) {
-  document.getElementById('payment-options-view')?.classList.add('hidden');
-  document.getElementById('payment-processing-view')?.classList.remove('hidden');
-
-  // Simulate payment processing for UX
-  setTimeout(() => {
-    document.getElementById('payment-processing-view')?.classList.add('hidden');
-    document.getElementById('payment-success-view')?.classList.remove('hidden');
-
-    const msgEl = document.getElementById('payment-success-msg');
-    if (msgEl) {
-      msgEl.textContent = paymentContext === 'consult'
-        ? 'Consultation Fee Paid. Your booking is confirmed.'
-        : 'Order payment successful. Your items are booked.';
-    }
-  }, 2200);
-}
-
-function finalizePayment() {
-  closeModal();
-  if (paymentContext === 'cart') {
-    const total = cart.reduce((s, i) => s + i.basePrice * i.qty, 0);
-    const body = encodeURIComponent(
-      `I have PAID for the following items:\n${cart.map(i => `${i.name} x${i.qty} = ₹${i.basePrice * i.qty}`).join('\n')}\n\nTotal: ₹${total}\n\nPlease process my request.`
-    );
-    window.open(`mailto:taraastrovision123@gmail.com?subject=Paid Order Confirmation&body=${body}`, '_blank');
-    
-    clearCart();
-    const cs = document.getElementById('cartSidebar');
-    if (cs && !cs.classList.contains('hidden')) {
-      toggleCart();
-    }
-    window.location.href = 'index.html';
-  } else {
-    // Show the consultation success message div
-    const name = document.getElementById('c-name')?.value || '';
-    const body = encodeURIComponent(`Consultation Paid by ${name}. Details shared in form.`);
-    window.open(`mailto:taraastrovision123@gmail.com?subject=Paid Consultation - ${name}&body=${body}`, '_blank');
-    
-    document.getElementById('consultForm').classList.add('hidden');
-    document.getElementById('consult-success').classList.remove('hidden');
-  }
+function showPaymentUnavailable() {
+  showModal('paymentUnavailable');
 }
 
 function proceedPayment() {
-  if (cart.length === 0) return;
-  const total = cart.reduce((s, i) => s + i.basePrice * i.qty, 0);
-  showPaymentModal('Cart Checkout', `Total Amount: ₹${total.toLocaleString('en-IN')}`);
+  if (cart.length > 0) showPaymentUnavailable();
 }
 
-window.processMethod = processMethod;
-window.finalizePayment = finalizePayment;
 window.proceedPayment = proceedPayment;
-window.showPaymentModal = showPaymentModal;
 
 /* ═══════════════════════════════════════════════════════════
    TARA ASTRO VISION — Pooja & Homam Booking System
@@ -2323,7 +2264,6 @@ const BOOKING = {
       contactEmail: '',
       contactPhone: '',
       submittedAt: null,
-      paidAt: null,
       status: 'draft'
     };
     return this.currentBooking;
@@ -2598,7 +2538,7 @@ function renderPaymentPage() {
   const container = document.getElementById('paymentPageContent');
   if (!container) return;
 
-  document.getElementById('paymentPageTitle').textContent = 'Secure Payment';
+  document.getElementById('paymentPageTitle').textContent = 'Payment unavailable';
   document.getElementById('paymentPageSub').textContent = `${b.name} — ₹${b.price.toLocaleString('en-IN')}`;
 
   const schedDisplay = b.scheduledDate
@@ -2617,66 +2557,9 @@ function renderPaymentPage() {
       <p>Amount: ₹${b.price.toLocaleString('en-IN')}</p>
       <p>Participants: ${b.participants.length}</p>
       <hr class="booking-summary-hr" />
-      <p class="payment-note">Complete your payment to confirm the booking.</p>
-    </div>
-    <div class="payment-methods payment-methods-spaced">
-      <button type="button" class="btn-payment btn-phonepe" data-booking-pay="PhonePe">🟣 PhonePe</button>
-      <button type="button" class="btn-payment btn-gpay" data-booking-pay="GPay">🔴🟡🔵🟢 Google Pay</button>
-      <div class="payment-divider">OR</div>
-      <button type="button" class="btn-secondary full-width" data-booking-pay="Other UPI">Other UPI ID / Scanner</button>
-    </div>
-    <div id="paymentProcessingView" class="processing-view hidden">
-      <span class="processing-spinner">🔄</span>
-      <h3>Processing Payment...</h3>
-      <p>Please do not refresh the page.</p>
+      <p class="payment-note">Your booking is saved as pending payment. Payment is not available yet, so this booking is not confirmed.</p>
     </div>
   `;
-}
-
-function processBookingPayment(method) {
-  const root = document.getElementById('paymentPageContent');
-  root?.querySelector('.payment-summary-box')?.classList.add('hidden');
-  root?.querySelector('.payment-methods')?.classList.add('hidden');
-  document.getElementById('paymentProcessingView')?.classList.remove('hidden');
-
-  setTimeout(() => {
-    completeBookingPayment();
-  }, 2200);
-}
-
-function completeBookingPayment() {
-  const b = BOOKING.currentBooking;
-  if (!b) return;
-
-  b.paidAt = new Date().toISOString();
-  b.status = 'confirmed';
-  b.paymentMethod = 'UPI';
-
-  // Generate PDF
-  const pdfBlob = generateBookingPDF(b);
-  b.pdfBlob = pdfBlob;
-
-  // Save to localStorage for persistence (optional)
-  try {
-    const all = JSON.parse(localStorage.getItem('tav_bookings') || '[]');
-    all.push({ ...b, pdfBlob: null });
-    localStorage.setItem('tav_bookings', JSON.stringify(all));
-  } catch (e) {}
-
-  // Convert PDF to base64 for email attachment, then send
-  const reader = new FileReader();
-  reader.onload = function () {
-    const base64 = (reader.result && reader.result.split(',')[1]) || '';
-    sendBookingEmails(b, base64);
-    persistBookingToStorage();
-    window.location.href = 'confirmation.html';
-  };
-  reader.onerror = function () {
-    sendBookingEmails(b, null);
-    persistBookingToStorage();
-    window.location.href = 'confirmation.html';
-  };
-  reader.readAsDataURL(pdfBlob);
 }
 
 // ─── PDF Receipt Generation ────────────────────────────────────────────
@@ -2874,16 +2757,9 @@ window.startPoojaBooking = startPoojaBooking;
 window.startHomamBooking = startHomamBooking;
 window.submitBookingForm = submitBookingForm;
 window.downloadBookingReceipt = downloadBookingReceipt;
-window.processBookingPayment = processBookingPayment;
 
 // ─── App bootstrap (multi-page) ───────────────────────────────────────
 window.TAV_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
-
-function bindPaymentPageActions() {
-  document.querySelectorAll('[data-booking-pay]').forEach(btn => {
-    btn.addEventListener('click', () => processBookingPayment(btn.getAttribute('data-booking-pay')));
-  });
-}
 
 function handleTavDocumentClick(e) {
   const prot = e.target.closest('a.nav-link-protected');
@@ -2979,7 +2855,6 @@ function initTavApp() {
       return;
     }
     renderPaymentPage();
-    bindPaymentPageActions();
   }
 
   if (page === 'confirmation') {
@@ -3036,13 +2911,7 @@ function initTavApp() {
     toggleUserMenu();
   });
 
-  document.getElementById('modal-payment')?.addEventListener('click', e => {
-    const pay = e.target.closest('[data-cart-pay]');
-    if (pay) processMethod(pay.getAttribute('data-cart-pay'));
-  });
-  document.getElementById('btnFinalizePayment')?.addEventListener('click', finalizePayment);
-
-  document.getElementById('btnProceedCartPay')?.addEventListener('click', proceedPayment);
+  document.getElementById('btnProceedCartPay')?.addEventListener('click', showPaymentUnavailable);
   document.getElementById('btnProceedCartQuote')?.addEventListener('click', proceedCheckout);
   document.getElementById('btnClearCart')?.addEventListener('click', clearCart);
 

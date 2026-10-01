@@ -112,6 +112,14 @@ document.addEventListener('click', e => {
   }
 });
 
+document.addEventListener('click', e => {
+  const card = e.target.closest('.homam-card');
+  if (!card || e.target.closest('a, button, input, select, textarea, label')) return;
+
+  const detailLink = card.querySelector('a.homam-name-link');
+  if (detailLink) window.location.href = detailLink.href;
+});
+
 // ────────────────────────────────────────────
 // RASI GRID (Home page)
 // ────────────────────────────────────────────
@@ -739,8 +747,7 @@ function submitConsult(e) {
 
   errEl.classList.add('hidden');
 
-  // Launch payment flow instead of immediate email
-  showPaymentModal('Consultation Booking', 'Fee: ₹501 (Personal Guidance)');
+  showPaymentUnavailable();
 }
 
 function resetConsultForm() {
@@ -894,74 +901,12 @@ window.clearCart = clearCart;
 window.toggleCart = toggleCart;
 window.proceedCheckout = proceedCheckout;
 
-// ────────────────────────────────────────────
-// PAYMENT SYSTEM
-// ────────────────────────────────────────────
-let paymentContext = null;
-
-function showPaymentModal(title, sub) {
-  paymentContext = title.toLowerCase().includes('consult') ? 'consult' : 'cart';
-  
-  document.getElementById('payment-modal-title').textContent = title;
-  document.getElementById('payment-modal-sub').textContent = sub;
-  
-  // Reset views
-  document.getElementById('payment-options-view').classList.remove('hidden');
-  document.getElementById('payment-processing-view').classList.add('hidden');
-  document.getElementById('payment-success-view').classList.add('hidden');
-  
-  showModal('payment');
-}
-
-function processMethod(method) {
-  document.getElementById('payment-options-view').classList.add('hidden');
-  document.getElementById('payment-processing-view').classList.remove('hidden');
-  
-  // Simulate payment processing for UX
-  setTimeout(() => {
-    document.getElementById('payment-processing-view').classList.add('hidden');
-    document.getElementById('payment-success-view').classList.remove('hidden');
-    
-    if (paymentContext === 'consult') {
-       document.getElementById('payment-success-msg').textContent = "Consultation Fee Paid. Your booking is confirmed.";
-    } else {
-       document.getElementById('payment-success-msg').textContent = "Order payment successful. Your items are booked.";
-    }
-  }, 2200);
-}
-
-function finalizePayment() {
-  closeModal();
-  if (paymentContext === 'cart') {
-    const total = cart.reduce((s, i) => s + i.basePrice * i.qty, 0);
-    const body = encodeURIComponent(
-      `I have PAID for the following items:\n${cart.map(i => `${i.name} x${i.qty} = ₹${i.basePrice * i.qty}`).join('\n')}\n\nTotal: ₹${total}\n\nPlease process my request.`
-    );
-    window.open(`mailto:taraastrovision123@gmail.com?subject=Paid Order Confirmation&body=${body}`, '_blank');
-    
-    clearCart();
-    if (!document.getElementById('cartSidebar').classList.contains('hidden')) {
-      toggleCart();
-    }
-    showPage('home');
-  } else {
-    // Show the consultation success message div
-    const name = document.getElementById('c-name').value;
-    const body = encodeURIComponent(`Consultation Paid by ${name}. Details shared in form.`);
-    window.open(`mailto:taraastrovision123@gmail.com?subject=Paid Consultation - ${name}&body=${body}`, '_blank');
-    
-    document.getElementById('consultForm').classList.add('hidden');
-    document.getElementById('consult-success').classList.remove('hidden');
-  }
+function showPaymentUnavailable() {
+  showModal('paymentUnavailable');
 }
 
 function proceedPayment() {
-  if (cart.length === 0) return;
-  const total = cart.reduce((s, i) => s + i.basePrice * i.qty, 0);
-  showPaymentModal('Cart Checkout', `Total Amount: ₹${total.toLocaleString('en-IN')}`);
+  if (cart.length > 0) showPaymentUnavailable();
 }
 
-window.processMethod = processMethod;
-window.finalizePayment = finalizePayment;
 window.proceedPayment = proceedPayment;
-window.showPaymentModal = showPaymentModal;

@@ -27,7 +27,6 @@ const BOOKING = {
       contactEmail: '',
       contactPhone: '',
       submittedAt: null,
-      paidAt: null,
       status: 'draft'
     };
     return this.currentBooking;
@@ -284,7 +283,7 @@ function renderPaymentPage() {
   const container = document.getElementById('paymentPageContent');
   if (!container) return;
 
-  document.getElementById('paymentPageTitle').textContent = 'Secure Payment';
+  document.getElementById('paymentPageTitle').textContent = 'Payment unavailable';
   document.getElementById('paymentPageSub').textContent = `${b.name} — ₹${b.price.toLocaleString('en-IN')}`;
 
   const schedDisplay = b.scheduledDate
@@ -303,64 +302,9 @@ function renderPaymentPage() {
       <p>Amount: ₹${b.price.toLocaleString('en-IN')}</p>
       <p>Participants: ${b.participants.length}</p>
       <hr style="border-color:var(--border);margin:16px 0" />
-      <p class="payment-note">Complete your payment to confirm the booking.</p>
-    </div>
-    <div class="payment-methods" style="margin-top:24px">
-      <button class="btn-payment btn-phonepe" onclick="processBookingPayment('PhonePe')">🟣 PhonePe</button>
-      <button class="btn-payment btn-gpay" onclick="processBookingPayment('GPay')">🔴🟡🔵🟢 Google Pay</button>
-      <div class="payment-divider">OR</div>
-      <button class="btn-secondary full-width" onclick="processBookingPayment('Other UPI')">Other UPI ID / Scanner</button>
-    </div>
-    <div id="paymentProcessingView" class="processing-view hidden">
-      <span class="processing-spinner">🔄</span>
-      <h3>Processing Payment...</h3>
-      <p>Please do not refresh the page.</p>
+      <p class="payment-note">Your booking is saved as pending payment. Payment is not available yet, so this booking is not confirmed.</p>
     </div>
   `;
-}
-
-function processBookingPayment(method) {
-  document.querySelector('.payment-summary-box')?.classList.add('hidden');
-  document.querySelector('.payment-methods')?.classList.add('hidden');
-  document.getElementById('paymentProcessingView')?.classList.remove('hidden');
-
-  setTimeout(() => {
-    completeBookingPayment();
-  }, 2200);
-}
-
-function completeBookingPayment() {
-  const b = BOOKING.currentBooking;
-  if (!b) return;
-
-  b.paidAt = new Date().toISOString();
-  b.status = 'confirmed';
-  b.paymentMethod = 'UPI';
-
-  // Generate PDF
-  const pdfBlob = generateBookingPDF(b);
-  b.pdfBlob = pdfBlob;
-
-  // Save to localStorage for persistence (optional)
-  try {
-    const all = JSON.parse(localStorage.getItem('tav_bookings') || '[]');
-    all.push({ ...b, pdfBlob: null });
-    localStorage.setItem('tav_bookings', JSON.stringify(all));
-  } catch (e) {}
-
-  // Convert PDF to base64 for email attachment, then send
-  const reader = new FileReader();
-  reader.onload = function () {
-    const base64 = (reader.result && reader.result.split(',')[1]) || '';
-    sendBookingEmails(b, base64);
-  };
-  reader.onerror = function () {
-    sendBookingEmails(b, null);
-  };
-  reader.readAsDataURL(pdfBlob);
-
-  showPage('confirmation');
-  renderConfirmationPage();
 }
 
 // ─── PDF Receipt Generation ────────────────────────────────────────────
@@ -557,4 +501,3 @@ window.startPoojaBooking = startPoojaBooking;
 window.startHomamBooking = startHomamBooking;
 window.submitBookingForm = submitBookingForm;
 window.downloadBookingReceipt = downloadBookingReceipt;
-window.processBookingPayment = processBookingPayment;

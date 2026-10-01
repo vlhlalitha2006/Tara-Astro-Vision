@@ -2479,28 +2479,6 @@ a.homam-card-detail:hover .homam-name {
   font-size: 15px;
 }
 
-.btn-phonepe {
-  background: #5f259f;
-  color: white;
-}
-
-.btn-phonepe:hover {
-  background: #4a1d7d;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(95, 37, 159, 0.4);
-}
-
-.btn-gpay {
-  background: #ffffff;
-  color: #3c4043;
-}
-
-.btn-gpay:hover {
-  background: #f8f9fa;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
 .payment-icon {
   height: 20px;
   width: auto;

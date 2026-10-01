@@ -101,7 +101,7 @@
     </div>
     <div class="cart-footer" id="cartFooter" style="display:none">
       <div class="cart-total-row"><span>Total:</span><span id="cartTotal" class="cart-total-amt">₹0</span></div>
-      <button class="btn-primary full-width" onclick="proceedPayment()">Pay &amp; Finalize Items</button>
+      <button class="btn-primary full-width" onclick="proceedPayment()">Payment currently unavailable</button>
       <button class="btn-secondary full-width" style="margin-top:8px" onclick="proceedCheckout()">Request Quote
         (Email)</button>
       <button class="btn-secondary full-width" style="margin-top:8px" onclick="clearCart()">Clear Cart</button>
@@ -125,6 +125,7 @@
             Kundli</button>
           <button class="btn-secondary" onclick="showPage('horoscope')" data-i18n="cta_horoscope">Today's
             Horoscope</button>
+          <a class="btn-primary" href="checkout.html" style="text-decoration:none; display:inline-block;">Checkout</a>
         </div>
       </div>
       <div class="hero-mandala"></div>
@@ -431,39 +432,14 @@
   </div>
 
   <!-- Payment Modal -->
-  <div class="modal hidden" id="modal-payment">
+  <div class="modal hidden" id="modal-paymentUnavailable">
     <button class="modal-close" onclick="closeModal()">×</button>
     <div class="modal-header">
-      <h2 id="payment-modal-title">Select Payment Method</h2>
-      <p id="payment-modal-sub">Fast & Secure via UPI</p>
+      <h2 id="payment-modal-title">Payment unavailable</h2>
+      <p id="payment-modal-sub">Your request is pending payment and has not been confirmed.</p>
     </div>
     <div class="modal-body">
-      <div id="payment-options-view">
-        <div class="payment-methods">
-          <button class="btn-payment btn-phonepe" onclick="processMethod('PhonePe')">
-            <span>🟣</span> PhonePe
-          </button>
-          <button class="btn-payment btn-gpay" onclick="processMethod('GPay')">
-            <span>🔴🟡🔵🟢</span> Google Pay
-          </button>
-        </div>
-        <div class="payment-divider">OR</div>
-        <button class="btn-secondary full-width" onclick="processMethod('Other UPI')">Other UPI ID / Scanner</button>
-      </div>
-
-      <div id="payment-processing-view" class="processing-view hidden">
-        <span class="processing-spinner">🔄</span>
-        <h3>Processing Payment...</h3>
-        <p>Please do not refresh the page.</p>
-      </div>
-
-      <div id="payment-success-view" class="payment-success-view hidden">
-        <span class="success-tick">✅</span>
-        <h3 id="payment-success-title">Payment Successful!</h3>
-        <p id="payment-success-msg">Your booking has been confirmed.</p>
-        <button class="btn-primary full-width" style="margin-top:20px" onclick="finalizePayment()">Return to Tara Astro
-          Vision</button>
-      </div>
+      <p>Payment is not available yet. No payment has been made and this request is not confirmed.</p>
     </div>
   </div>
 

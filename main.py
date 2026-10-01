@@ -151,7 +151,7 @@ def init_db():
             participants    TEXT    NOT NULL,
             contact_email   TEXT    NOT NULL,
             contact_phone   TEXT    NOT NULL,
-            status          TEXT    DEFAULT 'confirmed',
+            status          TEXT    DEFAULT 'pending_payment',
             paid_at         TEXT,
             created_at      TEXT    DEFAULT (datetime('now')),
             razorpay_order_id TEXT,
@@ -215,7 +215,7 @@ class BookingConfirm(BaseModel):
     participants: List[dict]
     contactEmail: str
     contactPhone: str
-    status: Optional[str] = "confirmed"
+    status: Optional[str] = "pending_payment"
     paidAt: Optional[str] = None
     razorpayOrderId: Optional[str] = None
     razorpayPaymentId: Optional[str] = None
@@ -669,7 +669,7 @@ async def confirm_booking(data: BookingConfirm, db=Depends(get_db)):
                 (data.id, data.type, data.name,
                  data.participants[0].get("name") if data.participants else None,
                  data.price, data.persons or 1, json.dumps(data.participants),
-                 data.contactEmail, data.contactPhone, data.status or "confirmed",
+                 data.contactEmail, data.contactPhone, data.status or "pending_payment",
                  data.paidAt, data.scheduledDate, data.razorpayOrderId,
                  data.razorpayPaymentId)
         )

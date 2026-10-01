@@ -85,7 +85,7 @@
     <div class="cart-footer hidden" id="cartFooter">
       <div class="cart-total-row"><span>Total:</span><span id="cartTotal" class="cart-total-amt">₹0</span></div>
       <div class="cart-footer-inner">
-        <button type="button" class="btn-primary full-width" id="btnProceedCartPay">Pay &amp; Finalize Items</button>
+        <button type="button" class="btn-primary full-width" id="btnProceedCartPay">Payment currently unavailable</button>
         <button type="button" class="btn-secondary full-width" id="btnProceedCartQuote">Request Quote (Email)</button>
         <button type="button" class="btn-secondary full-width" id="btnClearCart">Clear Cart</button>
       </div>
@@ -252,32 +252,14 @@
       <p data-i18n="calculating">Calculating your cosmic positions...</p>
     </div>
   </div>
-  <div class="modal hidden" id="modal-payment">
+  <div class="modal hidden" id="modal-paymentUnavailable">
     <button type="button" class="modal-close" aria-label="Close">×</button>
     <div class="modal-header">
-      <h2 id="payment-modal-title">Select Payment Method</h2>
-      <p id="payment-modal-sub">Fast &amp; Secure via UPI</p>
+      <h2 id="payment-modal-title">Payment unavailable</h2>
+      <p id="payment-modal-sub">Your request is pending payment and has not been confirmed.</p>
     </div>
     <div class="modal-body">
-      <div id="payment-options-view">
-        <div class="payment-methods">
-          <button type="button" class="btn-payment btn-phonepe" data-cart-pay="PhonePe"><span>🟣</span> PhonePe</button>
-          <button type="button" class="btn-payment btn-gpay" data-cart-pay="GPay"><span>🔴🟡🔵🟢</span> Google Pay</button>
-        </div>
-        <div class="payment-divider">OR</div>
-        <button type="button" class="btn-secondary full-width" data-cart-pay="Other UPI">Other UPI ID / Scanner</button>
-      </div>
-      <div id="payment-processing-view" class="processing-view hidden">
-        <span class="processing-spinner">🔄</span>
-        <h3>Processing Payment...</h3>
-        <p>Please do not refresh the page.</p>
-      </div>
-      <div id="payment-success-view" class="payment-success-view hidden">
-        <span class="success-tick">✅</span>
-        <h3 id="payment-success-title">Payment Successful!</h3>
-        <p id="payment-success-msg">Your booking has been confirmed.</p>
-        <button type="button" class="btn-primary full-width payment-success-actions" id="btnFinalizePayment">Return to Tara Astro Vision</button>
-      </div>
+      <p>Payment is not available yet. No payment has been made and this request is not confirmed.</p>
     </div>
   </div>
   <script src="js/main.js"></script>
