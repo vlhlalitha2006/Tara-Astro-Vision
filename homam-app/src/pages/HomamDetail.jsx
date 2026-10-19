@@ -5,7 +5,15 @@ function backToHomamsHref() {
   if (window.location.protocol === 'file:') {
     return '../index.html#homams'
   }
-  return `${window.location.origin}/index.html#homams`
+  return '/homam'
+}
+
+function handleBack(e) {
+  if (window.location.protocol === 'file:') return
+  if (window.history.length > 1) {
+    e.preventDefault()
+    window.history.back()
+  }
 }
 
 export default function HomamDetail() {
@@ -16,14 +24,14 @@ export default function HomamDetail() {
     return (
       <div className="homam-page">
         <header className="homam-topbar">
-          <a className="homam-back" href={backToHomamsHref()}>
+          <a className="homam-back" href={backToHomamsHref()} onClick={handleBack}>
             ← Back to Homams
           </a>
         </header>
         <div className="homam-container homam-not-found">
           <h1>Homam not found</h1>
           <p>This homam page does not exist or the link may be outdated.</p>
-          <a className="homam-btn-secondary" href={backToHomamsHref()}>
+          <a className="homam-btn-secondary" href={backToHomamsHref()} onClick={handleBack}>
             Return to Sacred Homams
           </a>
         </div>
@@ -34,7 +42,7 @@ export default function HomamDetail() {
   return (
     <div className="homam-page">
       <header className="homam-topbar">
-        <a className="homam-back" href={backToHomamsHref()}>
+        <a className="homam-back" href={backToHomamsHref()} onClick={handleBack}>
           ← Back to Homams
         </a>
       </header>

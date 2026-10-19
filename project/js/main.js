@@ -1084,7 +1084,7 @@ const AUTH = {
   },
 
   isLoggedIn() {
-    return !!this.getUser() && !!this.getToken();
+    return true; // Direct access enabled
   },
 
   // ── Save session ──
@@ -1249,18 +1249,11 @@ document.addEventListener('click', e => {
 });
 
 function requireLogin(pageHref) {
-  if (AUTH.isLoggedIn()) {
-    window.location.href = pageHref;
-  } else {
-    window._pendingPageHref = pageHref;
-    showModal('loginRequired');
-  }
+  window.location.href = pageHref;
 }
 
 function loadDashboard(user) {
   const profileInfo = document.getElementById('profileInfo');
-  if (!profileInfo) return;
-
   const charts = getSavedCharts();
   const chartList = document.getElementById('chartList');
   if (chartList) {
@@ -1269,48 +1262,62 @@ function loadDashboard(user) {
     } else {
       chartList.innerHTML = charts.map(c => `
         <div class="profile-row">
-          <span class="profile-label">${c.name}</span>
+          <span class="profile-label">${c.name || 'Birth Chart'}</span>
           <span class="profile-value profile-date-muted">${new Date(c.date).toLocaleDateString()}</span>
         </div>
       `).join('');
     }
   }
 
-  profileInfo.innerHTML = `
-    <div class="profile-row">
-      <span class="profile-label">Name</span>
-      <span class="profile-value">${user.name}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-label">Email</span>
-      <span class="profile-value">${user.email}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-label">Member Since</span>
-      <span class="profile-value">${new Date(user.created).toLocaleDateString()}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-label">Language</span>
-      <span class="profile-value">${currentLang.toUpperCase()}</span>
-    </div>
-  `;
+  if (profileInfo) {
+    if (user) {
+      profileInfo.innerHTML = `
+        <div class="profile-row">
+          <span class="profile-label">Name</span>
+          <span class="profile-value">${user.name}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-label">Email</span>
+          <span class="profile-value">${user.email}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-label">Language</span>
+          <span class="profile-value">${(currentLang || 'en').toUpperCase()}</span>
+        </div>
+      `;
+    } else {
+      profileInfo.innerHTML = `
+        <div class="profile-row">
+          <span class="profile-label">Access</span>
+          <span class="profile-value">Direct Access</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-label">Language</span>
+          <span class="profile-value">${(currentLang || 'en').toUpperCase()}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-label">Saved Charts</span>
+          <span class="profile-value">${charts.length}</span>
+        </div>
+      `;
+    }
+  }
 }
 
 function getSavedCharts() {
-  const user = AUTH.getUser();
-  if (!user) return [];
   try {
-    const all = JSON.parse(localStorage.getItem('jyotisha_charts') || '[]');
-    return all.filter(c => c.userId === user.id);
+    return JSON.parse(localStorage.getItem('jyotisha_charts') || '[]');
   } catch { return []; }
 }
 
 function saveChart(chartData) {
-  const user = AUTH.getUser();
-  if (!user) return;
-  const all = JSON.parse(localStorage.getItem('jyotisha_charts') || '[]');
-  all.push({ ...chartData, userId: user.id, date: new Date().toISOString() });
-  localStorage.setItem('jyotisha_charts', JSON.stringify(all));
+  try {
+    const all = JSON.parse(localStorage.getItem('jyotisha_charts') || '[]');
+    all.push({ ...chartData, date: new Date().toISOString() });
+    localStorage.setItem('jyotisha_charts', JSON.stringify(all));
+  } catch (e) {
+    console.error('Could not save chart:', e);
+  }
 }
 
 // Init auth: see initTavApp()
@@ -1518,17 +1525,14 @@ async function generateKundli(e) {
     renderPlanetTable(chartData);
     renderLifeOverview(chartData);
 
-    // Save chart for logged-in user
+    // Save chart
     const pob = document.getElementById('pob').value;
-    const user = AUTH.getUser();
-    if (user) {
-      saveChart({
-        name: `${pob} — ${dob}`,
-        dob, tob, lat, lon,
-        lagna: chartData.lagna_rasi,
-        moon: chartData.moon_rasi,
-      });
-    }
+    saveChart({
+      name: `${pob} — ${dob}`,
+      dob, tob, lat, lon,
+      lagna: chartData.lagna_rasi,
+      moon: chartData.moon_rasi,
+    });
 
   } catch (err) {
     closeModal();
@@ -1999,7 +2003,7 @@ window.renderHoroscopeCard = renderHoroscopeCard;
 // ────────────────────────────────────────────
 // CONSULT ASTROLOGER PAGE
 // ────────────────────────────────────────────
-function submitConsult(e) {
+async function submitConsult(e) {
   e.preventDefault();
 
   const name = document.getElementById('c-name').value.trim();
@@ -2008,8 +2012,10 @@ function submitConsult(e) {
   const type = document.getElementById('c-type').value;
   const message = document.getElementById('c-message').value.trim();
   const errEl = document.getElementById('consult-error');
+  const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
 
   if (!name || !email || !phone || !type || !message) {
+    errEl.textContent = 'Please fill in all required fields.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -2022,8 +2028,160 @@ function submitConsult(e) {
   }
 
   errEl.classList.add('hidden');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting Request...';
+  }
 
-  showPaymentUnavailable();
+  try {
+    const apiBase = (typeof TAV_API_BASE !== 'undefined' ? TAV_API_BASE : window.TAV_API_BASE || '');
+    const consultId = 'TAV-CONSULT-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+    // 1. Attempt to create a Razorpay payment order for Astrologer Consultation
+    if (submitBtn) submitBtn.textContent = 'Preparing Payment...';
+    let orderRes = null;
+    try {
+      orderRes = await fetch(`${apiBase}/api/payment/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Astrologer Consultation',
+          serviceType: 'consultation',
+          persons: 1,
+          bookingId: consultId,
+          contactEmail: email,
+          contactPhone: phone,
+        }),
+      });
+    } catch (netErr) {
+      orderRes = null;
+    }
+
+    if (!orderRes) {
+      throw new Error('Could not reach the payment server. No consultation was submitted; please try again.');
+    }
+    if (!orderRes.ok) {
+      const orderError = await orderRes.json().catch(() => ({}));
+      throw new Error(orderError.detail || 'Could not create the consultation payment order. No consultation was submitted.');
+    }
+
+    if (orderRes && orderRes.ok) {
+      const orderData = await orderRes.json();
+      if (!orderData.order_id || !orderData.key_id || !orderData.amount) {
+        throw new Error('The payment server returned an invalid order. No consultation was submitted.');
+      }
+      if (typeof loadRazorpayScript === 'function') {
+        await loadRazorpayScript();
+      }
+
+      const rzp = new window.Razorpay({
+        key: orderData.key_id,
+        order_id: orderData.order_id,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'Tara Astro Vision',
+        description: `${type.toUpperCase()} Astrologer Consultation`,
+        image: '/logo.jpg',
+        prefill: {
+          name: name,
+          email: email,
+          contact: phone,
+        },
+        notes: {
+          booking_id: consultId,
+          consultation_type: type,
+        },
+        theme: { color: '#c9962b' },
+        handler: async function (response) {
+          try {
+            if (submitBtn) submitBtn.textContent = 'Verifying Payment...';
+            // Verify payment
+            const vr = await fetch(`${apiBase}/api/payment/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                expected_amount_paise: orderData.amount,
+              }),
+            });
+            const vd = await vr.json();
+            if (!vr.ok || vd.verified !== true) {
+              throw new Error(vd.detail || 'Payment verification failed');
+            }
+
+            // Confirm booking
+            const confirmRes = await fetch(`${apiBase}/api/booking/confirm`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: consultId,
+                type: 'consultation',
+                name: 'Astrologer Consultation',
+                price: orderData.amount / 100,
+                persons: 1,
+                participants: [{ name, email, phone, type, message }],
+                contactEmail: email,
+                contactPhone: phone,
+                status: 'paid',
+                paidAt: new Date().toISOString(),
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+            const confirmData = await confirmRes.json().catch(() => ({}));
+            if (!confirmRes.ok) {
+              throw new Error(confirmData.detail || 'Booking confirmation failed');
+            }
+
+            document.getElementById('consultForm').classList.add('hidden');
+            document.getElementById('consult-success').classList.remove('hidden');
+          } catch (err) {
+            errEl.textContent = err.message || 'Payment verification failed. Please contact support.';
+            errEl.classList.remove('hidden');
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Pay & Book Consultation';
+            }
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Pay & Book Consultation';
+            }
+            errEl.textContent = 'Payment cancelled. You can try again.';
+            errEl.classList.remove('hidden');
+          },
+        },
+      });
+
+      rzp.on('payment.failed', function (resp) {
+        const desc = (resp.error && resp.error.description) || 'Payment failed.';
+        errEl.textContent = 'Payment failed: ' + desc;
+        errEl.classList.remove('hidden');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Pay & Book Consultation';
+        }
+      });
+
+      rzp.open();
+      return;
+    }
+  } catch (err) {
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.remove('hidden');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Request Consultation';
+    }
+  }
 }
 
 function resetConsultForm() {
@@ -2043,6 +2201,11 @@ window.resetConsultForm = resetConsultForm;
 let cart = []; // Array of { id, name, basePrice, qty }
 
 function addToCart(name, price) {
+  const avail = getServiceAvailabilityInfo(name);
+  if (avail && avail.sold_out) {
+    alert(`Bookings Closed — Maximum Capacity Reached (50/50) for ${name}.`);
+    return;
+  }
   const existing = cart.find(i => i.id === name);
   if (existing) {
     existing.qty++;
@@ -2324,16 +2487,213 @@ function persistBookingToStorage() {
   } catch (e) {}
 }
 
+// ─── Service Booking Limit & Availability (50 per service) ───────────────────
+window.SERVICE_AVAILABILITY = {};
+
+const CANONICAL_SERVICE_MAP = {
+  'Prathyangira Homam': 'Pratyangira Homam',
+  'Pratyangira Homam': 'Pratyangira Homam',
+  'Bhagalamukhi Homam': 'Bagalamukhi Homam',
+  'Bagalamukhi Homam': 'Bagalamukhi Homam',
+  'Bhairavi Homam': 'Tripura Bhairavi Homam',
+  'Tripura Bhairavi Homam': 'Tripura Bhairavi Homam',
+  'Shodasi Homam': 'Shodashi Homam',
+  'Shodashi Homam': 'Shodashi Homam',
+  'Kalabhairava Homam': 'Kala Bhairava Homam',
+  'Kala Bhairava Homam': 'Kala Bhairava Homam',
+  'Sudarsana Homam': 'Sudarshana Homam',
+  'Sudarshana Homam': 'Sudarshana Homam',
+  'Vaarahi Homam': 'Varahi Homam',
+  'Varahi Homam': 'Varahi Homam',
+};
+
+function getCanonicalServiceName(name) {
+  const n = (name || '').trim();
+  return CANONICAL_SERVICE_MAP[n] || n;
+}
+
+function getServiceAvailabilityInfo(name) {
+  if (!window.SERVICE_AVAILABILITY) return null;
+  const n = (name || '').trim();
+  const canon = getCanonicalServiceName(n);
+  return window.SERVICE_AVAILABILITY[n] || window.SERVICE_AVAILABILITY[canon] || null;
+}
+
+function updateServiceAvailabilityUI(availabilityMap) {
+  if (!availabilityMap) return;
+
+  // 1. Process all Pooja cards
+  document.querySelectorAll('.pooja-card').forEach(card => {
+    const nameEl = card.querySelector('.pooja-name');
+    const bookBtn = card.querySelector('.btn-add-cart') || card.querySelector('button');
+    let serviceName = '';
+
+    if (bookBtn && bookBtn.getAttribute('onclick')) {
+      const match = bookBtn.getAttribute('onclick').match(/startPoojaBooking\(\s*['"]([^'"]+)['"]/);
+      if (match) serviceName = match[1];
+    }
+    if (!serviceName && bookBtn && bookBtn.dataset.name) {
+      serviceName = bookBtn.dataset.name;
+    }
+    if (!serviceName && nameEl) {
+      serviceName = nameEl.textContent.trim();
+    }
+    if (!serviceName) return;
+
+    const info = getServiceAvailabilityInfo(serviceName);
+    if (!info) return;
+
+    let badge = card.querySelector('.service-slot-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'service-slot-badge';
+      if (bookBtn) {
+        card.insertBefore(badge, bookBtn);
+      } else {
+        card.appendChild(badge);
+      }
+    }
+
+    if (info.sold_out) {
+      badge.className = 'service-slot-badge sold-out';
+      badge.textContent = 'Bookings Closed — Maximum Capacity Reached (50/50)';
+      if (bookBtn) {
+        bookBtn.disabled = true;
+        bookBtn.classList.add('btn-disabled', 'sold-out');
+        bookBtn.setAttribute('aria-disabled', 'true');
+        bookBtn.textContent = 'Bookings Closed (50/50)';
+      }
+    } else {
+      const isLow = info.remaining <= 5;
+      badge.className = `service-slot-badge available ${isLow ? 'slot-low' : ''}`;
+      badge.textContent = `Available Slots: ${info.remaining}/${info.max_limit}`;
+      if (bookBtn && !bookBtn.classList.contains('btn-disabled')) {
+        bookBtn.disabled = false;
+        bookBtn.classList.remove('sold-out');
+      }
+    }
+  });
+
+  // 2. Process all Homam cards
+  document.querySelectorAll('.homam-card').forEach(card => {
+    const nameEl = card.querySelector('.homam-name');
+    const bookBtn = card.querySelector('.btn-add-cart') || card.querySelector('button');
+    const qtyInput = card.querySelector('.homam-qty');
+    let serviceName = '';
+
+    if (bookBtn && bookBtn.getAttribute('onclick')) {
+      const match = bookBtn.getAttribute('onclick').match(/startHomamBooking\([^,]+,\s*['"]([^'"]+)['"]/);
+      if (match) serviceName = match[1];
+    }
+    if (!serviceName && bookBtn && bookBtn.dataset.name) {
+      serviceName = bookBtn.dataset.name;
+    }
+    if (!serviceName && nameEl) {
+      serviceName = nameEl.textContent.trim();
+    }
+    if (!serviceName) return;
+
+    const info = getServiceAvailabilityInfo(serviceName);
+    if (!info) return;
+
+    let badge = card.querySelector('.service-slot-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'service-slot-badge';
+      if (bookBtn) {
+        card.insertBefore(badge, bookBtn);
+      } else {
+        card.appendChild(badge);
+      }
+    }
+
+    if (info.coming_soon) {
+      badge.className = 'service-slot-badge coming-soon';
+      badge.textContent = 'Coming Soon';
+      if (bookBtn) {
+        bookBtn.disabled = true;
+        bookBtn.classList.add('btn-disabled');
+        bookBtn.setAttribute('aria-disabled', 'true');
+        bookBtn.textContent = 'Coming Soon';
+      }
+      if (qtyInput) qtyInput.disabled = true;
+    } else if (info.sold_out) {
+      badge.className = 'service-slot-badge sold-out';
+      badge.textContent = 'Bookings Closed — Maximum Capacity Reached (50/50)';
+      if (bookBtn) {
+        bookBtn.disabled = true;
+        bookBtn.classList.add('btn-disabled', 'sold-out');
+        bookBtn.setAttribute('aria-disabled', 'true');
+        bookBtn.textContent = 'Bookings Closed (50/50)';
+      }
+      if (qtyInput) qtyInput.disabled = true;
+    } else {
+      const isLow = info.remaining <= 5;
+      badge.className = `service-slot-badge available ${isLow ? 'slot-low' : ''}`;
+      badge.textContent = `Available Slots: ${info.remaining}/${info.max_limit}`;
+      if (bookBtn && isHomamEnabled(serviceName)) {
+        bookBtn.disabled = false;
+        bookBtn.classList.remove('btn-disabled', 'sold-out');
+        bookBtn.removeAttribute('aria-disabled');
+        bookBtn.innerHTML = '📋 Book Now';
+        if (qtyInput) qtyInput.disabled = false;
+      }
+    }
+  });
+}
+
+async function fetchServiceAvailability() {
+  const apiBase = window.TAV_API_BASE || '';
+  try {
+    const res = await fetch(`${apiBase}/api/services/availability`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.availability) {
+      window.SERVICE_AVAILABILITY = data.availability;
+      updateServiceAvailabilityUI(data.availability);
+    }
+  } catch (err) {
+    console.warn('Could not load service availability:', err.message);
+  }
+}
+
 // ─── Start booking from Pooja card ─────────────────────────────────────
 function startPoojaBooking(poojaName, price) {
+  const avail = getServiceAvailabilityInfo(poojaName);
+  if (avail && avail.sold_out) {
+    alert(`Bookings Closed — Maximum Capacity Reached (50/50) for ${poojaName}.`);
+    return;
+  }
   BOOKING.initBooking('pooja', poojaName, price, 1);
   BOOKING.ensureParticipantSections();
   persistBookingToStorage();
   window.location.href = 'booking.html';
 }
 
+const ENABLED_HOMAMS = new Set([
+  'Pratyangira Homam',
+  'Prathyangira Homam',
+  'Lakshmi Ganapathi Homam',
+  'Kala Bhairava Homam',
+  'Kalabhairava Homam',
+  'Chandi Mula Mantra Homam'
+]);
+
+function isHomamEnabled(name) {
+  return ENABLED_HOMAMS.has((name || '').trim());
+}
+
 // ─── Start booking from Homam card ─────────────────────────────────────
 function startHomamBooking(btn, homamName, pricePerPerson) {
+  if (!isHomamEnabled(homamName)) {
+    alert('Booking for ' + (homamName || 'this homam') + ' is coming soon.');
+    return;
+  }
+  const avail = getServiceAvailabilityInfo(homamName);
+  if (avail && avail.sold_out) {
+    alert(`Bookings Closed — Maximum Capacity Reached (50/50) for ${homamName}.`);
+    return;
+  }
   const card = btn.closest('.homam-card');
   const qtyInput = card ? card.querySelector('.homam-qty') : null;
   const persons = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 1;
@@ -2538,8 +2898,9 @@ function renderPaymentPage() {
   const container = document.getElementById('paymentPageContent');
   if (!container) return;
 
-  document.getElementById('paymentPageTitle').textContent = 'Payment unavailable';
-  document.getElementById('paymentPageSub').textContent = `${b.name} — ₹${b.price.toLocaleString('en-IN')}`;
+  document.getElementById('paymentPageTitle').textContent = 'Payment';
+  document.getElementById('paymentPageSub').textContent =
+    `${b.name} — ₹${b.price.toLocaleString('en-IN')}`;
 
   const schedDisplay = b.scheduledDate
     ? new Date(b.scheduledDate + 'T12:00:00').toLocaleDateString('en-IN', {
@@ -2549,17 +2910,321 @@ function renderPaymentPage() {
         year: 'numeric'
       })
     : '—';
+
   container.innerHTML = `
     <div class="payment-summary-box">
       <h3>Booking Summary</h3>
       <p><strong>${b.name}</strong></p>
-      <p><strong>${b.type === 'pooja' ? 'Pooja' : 'Homam'} date:</strong> ${schedDisplay}</p>
+      <p>
+        <strong>${b.type === 'pooja' ? 'Pooja' : 'Homam'} date:</strong>
+        ${schedDisplay}
+      </p>
       <p>Amount: ₹${b.price.toLocaleString('en-IN')}</p>
       <p>Participants: ${b.participants.length}</p>
+
       <hr class="booking-summary-hr" />
-      <p class="payment-note">Your booking is saved as pending payment. Payment is not available yet, so this booking is not confirmed.</p>
+
+      <p class="payment-note">
+        Pay securely with Razorpay.
+        You will receive a PDF receipt by email after successful payment.
+      </p>
+
+      <button
+        id="rzpPayBtn"
+        class="btn-primary full-width"
+        style="margin-top:16px"
+      >
+        Pay ₹${b.price.toLocaleString('en-IN')} Now
+      </button>
+
+      <p
+        id="rzpStatus"
+        class="payment-note"
+        style="margin-top:10px"
+      ></p>
     </div>
   `;
+
+  const payBtn = document.getElementById('rzpPayBtn');
+
+  if (payBtn) {
+    payBtn.addEventListener('click', startRazorpayCheckout);
+  }
+}
+
+function loadRazorpayScript() {
+  if (window.Razorpay) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+
+    script.onload = resolve;
+
+    script.onerror = () => {
+      reject(new Error('Could not load Razorpay Checkout.'));
+    };
+
+    document.body.appendChild(script);
+  });
+}
+
+
+let _rzpInFlight = false;
+
+async function startRazorpayCheckout() {
+  const b = BOOKING.currentBooking;
+
+  if (!b) return;
+  if (_rzpInFlight) return; // Prevent double-clicks
+
+  const btn = document.getElementById('rzpPayBtn');
+  const status = document.getElementById('rzpStatus');
+
+  const apiBase = window.TAV_API_BASE || '';
+
+  const setStatus = (message) => {
+    if (status) {
+      status.textContent = message;
+    }
+  };
+
+  _rzpInFlight = true;
+  if (btn) {
+    btn.disabled = true;
+  }
+
+  try {
+    // 1. Create Razorpay order through FastAPI
+    setStatus('Creating payment order...');
+
+    const orderRes = await fetch(`${apiBase}/api/payment/order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: b.name,
+        serviceType: b.type || 'pooja',
+        persons: b.persons || 1,
+        bookingId: b.id,
+        contactEmail: b.contactEmail || null,
+        contactPhone: b.contactPhone || null,
+        amount: b.price
+      })
+    });
+
+    const orderData = await orderRes.json();
+
+    if (!orderRes.ok) {
+      throw new Error(
+        orderData.detail || 'Could not create Razorpay order.'
+      );
+    }
+
+    // 2. Load Razorpay Checkout
+    await loadRazorpayScript();
+
+    const firstParticipant =
+      b.participants && b.participants.length > 0
+        ? b.participants[0]
+        : {};
+
+    // 3. Open Razorpay Checkout
+    const razorpay = new window.Razorpay({
+      key: orderData.key_id,
+      order_id: orderData.order_id,
+      amount: orderData.amount,
+      currency: orderData.currency,
+
+      name: 'Tara Astro Vision',
+
+      description: b.name,
+
+      image: '/logo.jpg',
+
+      prefill: {
+        name: firstParticipant.name || '',
+        email: b.contactEmail || '',
+        contact: b.contactPhone || ''
+      },
+
+      notes: {
+        booking_id: b.id
+      },
+
+      theme: {
+        color: '#c9962b'
+      },
+
+      // 4. Razorpay payment successful
+      handler: async function (response) {
+
+        try {
+          setStatus('Verifying payment...');
+
+          // 5. Verify payment signature through FastAPI
+          const verifyRes = await fetch(
+            `${apiBase}/api/payment/verify`,
+            {
+              method: 'POST',
+
+              headers: {
+                'Content-Type': 'application/json'
+              },
+
+              body: JSON.stringify({
+                razorpay_order_id:
+                  response.razorpay_order_id,
+
+                razorpay_payment_id:
+                  response.razorpay_payment_id,
+
+                razorpay_signature:
+                  response.razorpay_signature,
+
+                expected_amount_paise:
+                  orderData.amount
+              })
+            }
+          );
+
+          const verifyData = await verifyRes.json();
+
+          if (!verifyRes.ok || verifyData.verified !== true) {
+            throw new Error(
+              verifyData.detail ||
+              'Payment verification failed.'
+            );
+          }
+
+          // 6. Store verified payment information
+          b.razorpayOrderId =
+            response.razorpay_order_id;
+
+          b.razorpayPaymentId =
+            response.razorpay_payment_id;
+
+          b.razorpaySignature =
+            response.razorpay_signature;
+
+          b.paidAt =
+            new Date().toISOString();
+
+          // Save the verified payment on the backend before showing success.
+          const pdfBase64 = await bookingPdfBase64(b);
+          await sendBookingEmails(b, pdfBase64);
+          b.backendConfirmed = true;
+          b.status = 'confirmed';
+
+          persistBookingToStorage();
+
+          setStatus('Payment successful!');
+          _rzpInFlight = false;
+
+          if (btn) {
+            btn.disabled = false;
+          }
+
+          // 7. Generate receipt and send confirmation
+          goToConfirmation();
+
+        } catch (error) {
+
+          console.error(
+            'Payment verification error:',
+            error
+          );
+
+          setStatus(
+            error.message ||
+            'Payment verification failed.'
+          );
+
+          _rzpInFlight = false;
+          if (btn) {
+            btn.disabled = false;
+          }
+        }
+      },
+
+      modal: {
+        ondismiss: function () {
+          _rzpInFlight = false;
+          if (btn) {
+            btn.disabled = false;
+          }
+
+          setStatus('Payment cancelled.');
+        }
+      }
+    });
+
+    razorpay.on(
+      'payment.failed',
+      function (response) {
+
+        _rzpInFlight = false;
+        const reason =
+          response.error &&
+          response.error.description
+            ? response.error.description
+            : 'Payment failed.';
+
+        setStatus(reason);
+
+        if (btn) {
+          btn.disabled = false;
+        }
+      }
+    );
+
+    setStatus('');
+
+    razorpay.open();
+
+  } catch (error) {
+
+    _rzpInFlight = false;
+    console.error(
+      'Razorpay checkout error:',
+      error
+    );
+
+    setStatus(
+      error.message ||
+      'Payment could not be started.'
+    );
+
+    if (btn) {
+      btn.disabled = false;
+    }
+  }
+}
+
+function goToConfirmation() {
+  const b = BOOKING.currentBooking;
+
+  if (!b) return;
+  if (!b.backendConfirmed) {
+    console.error('Booking confirmation is unavailable until the backend saves the verified payment.');
+    return;
+  }
+
+  b.status = 'confirmed';
+
+  persistBookingToStorage();
+
+  showPage('confirmation');
+
+  renderConfirmationPage();
+
+  if (!b.pdfBlob) {
+    b.pdfBlob = generateBookingPDF(b);
+  }
 }
 
 // ─── PDF Receipt Generation ────────────────────────────────────────────
@@ -2710,6 +3375,16 @@ function downloadBookingReceipt() {
 }
 
 // ─── Email notifications (calls backend) ───────────────────────────────
+async function bookingPdfBase64(booking) {
+  if (!booking.pdfBlob) booking.pdfBlob = generateBookingPDF(booking);
+  const bytes = new Uint8Array(await booking.pdfBlob.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 function sendBookingEmails(booking, pdfBase64) {
   const apiBase = window.TAV_API_BASE || '';
   const url = apiBase ? `${apiBase}/api/booking/confirm` : '/api/booking/confirm';
@@ -2727,28 +3402,29 @@ function sendBookingEmails(booking, pdfBase64) {
     paidAt: booking.paidAt,
     razorpayOrderId: booking.razorpayOrderId || null,
     razorpayPaymentId: booking.razorpayPaymentId || null,
+    razorpaySignature: booking.razorpaySignature || null,
     scheduledDate: booking.scheduledDate || null
   };
   if (pdfBase64) payload.pdfBase64 = pdfBase64;
 
-  fetch(url, {
+  return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-    .then(res => {
-      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-      return res.json();
+    .then(async res => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `API ${res.status}: ${res.statusText}`);
+      return data;
     })
     .then(data => {
+      fetchServiceAvailability();
       if (data.emails_sent) {
         if (!data.emails_sent.admin || !data.emails_sent.user) {
           console.warn('Some emails may not have been sent:', data.emails_sent);
         }
       }
-    })
-    .catch(err => {
-      console.error('Booking/email API failed:', err);
+      return data;
     });
 }
 
@@ -2757,18 +3433,16 @@ window.startPoojaBooking = startPoojaBooking;
 window.startHomamBooking = startHomamBooking;
 window.submitBookingForm = submitBookingForm;
 window.downloadBookingReceipt = downloadBookingReceipt;
+window.fetchServiceAvailability = fetchServiceAvailability;
+window.updateServiceAvailabilityUI = updateServiceAvailabilityUI;
 
 // ─── App bootstrap (multi-page) ───────────────────────────────────────
-window.TAV_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'http://localhost:8000' : '';
+window.TAV_API_BASE = window.TAV_API_BASE ||
+  (window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1' ||
+   window.location.protocol === 'file:' ? 'http://localhost:8000' : '');
 
 function handleTavDocumentClick(e) {
-  const prot = e.target.closest('a.nav-link-protected');
-  if (prot && !AUTH.isLoggedIn()) {
-    e.preventDefault();
-    window._pendingPageHref = prot.getAttribute('href');
-    showModal('loginRequired');
-    return;
-  }
   const addCart = e.target.closest('[data-add-cart]');
   if (addCart) {
     e.preventDefault();
@@ -2827,8 +3501,7 @@ function initTavApp() {
   }
 
   if (page === 'dashboard') {
-    const u = AUTH.getUser();
-    if (u) loadDashboard(u);
+    loadDashboard();
   }
 
   if (page === 'booking') {
@@ -2881,12 +3554,6 @@ function initTavApp() {
   document.getElementById('cartCloseBtn')?.addEventListener('click', toggleCart);
   document.getElementById('hamburger')?.addEventListener('click', toggleNav);
 
-  document.querySelectorAll('.btn-login').forEach(el => el.addEventListener('click', () => showModal('login')));
-  document.querySelectorAll('.btn-register').forEach(el => el.addEventListener('click', () => showModal('register')));
-
-  document.getElementById('formLogin')?.addEventListener('submit', handleLogin);
-  document.getElementById('formRegister')?.addEventListener('submit', handleRegister);
-
   document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', closeModal);
   });
@@ -2906,23 +3573,15 @@ function initTavApp() {
     toggleLangMenu();
   });
 
-  document.getElementById('userMenu')?.querySelector('.user-avatar-btn')?.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleUserMenu();
-  });
-
   document.getElementById('btnProceedCartPay')?.addEventListener('click', showPaymentUnavailable);
   document.getElementById('btnProceedCartQuote')?.addEventListener('click', proceedCheckout);
   document.getElementById('btnClearCart')?.addEventListener('click', clearCart);
 
-  document.getElementById('logoutLink')?.addEventListener('click', e => {
-    e.preventDefault();
-    logout();
-  });
-
   document.querySelectorAll('#navLinks a').forEach(a => {
     a.addEventListener('click', () => document.getElementById('navLinks')?.classList.remove('open'));
   });
+
+  fetchServiceAvailability();
 }
 
 document.addEventListener('DOMContentLoaded', initTavApp);

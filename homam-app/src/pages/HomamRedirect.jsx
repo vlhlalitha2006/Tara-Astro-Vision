@@ -6,7 +6,7 @@ export default function HomamRedirect() {
       window.location.replace('../index.html#homams')
       return
     }
-    window.location.replace(`${window.location.origin}/index.html#homams`)
+    window.location.href = '/homam'
   }, [])
   return (
     <div className="homam-loading">

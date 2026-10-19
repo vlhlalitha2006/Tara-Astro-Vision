@@ -6,7 +6,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomamRedirect />} />
+      <Route path="/index.html" element={<HomamRedirect />} />
       <Route path=":slug" element={<HomamDetail />} />
+      <Route path=":slug/index.html" element={<HomamDetail />} />
     </Routes>
   )
 }

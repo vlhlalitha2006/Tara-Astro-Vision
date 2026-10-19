@@ -13,25 +13,44 @@ Backend Stack:
 ══════════════════════════════════════════════════════════
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
+from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-import sqlite3, hashlib, os, math, logging
+import sqlite3, hashlib, os, math, logging, threading, json
 import pathlib
+from service_catalogue import (
+    validate_and_price,
+    all_services,
+    get_all_services_availability,
+    get_confirmed_booking_count,
+    SERVICE_BOOKING_LIMIT,
+    canonical_service_name,
+    is_homam_enabled,
+)
+from razorpay_service import RazorpayClient, RazorpayAPIError, SignatureVerificationError
+
+booking_lock = threading.Lock()
+
+# Root directory of backend and project
+ROOT_DIR = pathlib.Path(__file__).parent.resolve()
 
 # Load .env from project directory (where main.py lives)
-_env_path = pathlib.Path(__file__).parent / ".env"
+_env_path = ROOT_DIR / ".env"
 try:
     from dotenv import load_dotenv
     load_dotenv(dotenv_path=_env_path)
 except ImportError:
     pass
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 log = logging.getLogger("tara-astro")
 
 # Optional: import swisseph for production
@@ -39,10 +58,41 @@ log = logging.getLogger("tara-astro")
 # swe.set_ephe_path('/path/to/ephe')   # Set ephemeris data path
 
 # ─── Configuration ───────────────────────────────────────────
-SECRET_KEY    = os.getenv("JWT_SECRET", "jyotisha_secret_change_in_production")
-ALGORITHM     = "HS256"
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+SECRET_KEY = os.environ.get("JWT_SECRET") or os.getenv("JWT_SECRET", "")
+if not SECRET_KEY:
+    if APP_ENV == "production":
+        raise RuntimeError("JWT_SECRET must be configured in production")
+    _secret_file = ROOT_DIR / ".jwt_secret"
+    if _secret_file.is_file():
+        try:
+            SECRET_KEY = _secret_file.read_text().strip()
+        except Exception:
+            SECRET_KEY = ""
+    if not SECRET_KEY:
+        import secrets as _secrets
+        SECRET_KEY = _secrets.token_hex(32)
+        try:
+            _secret_file.write_text(SECRET_KEY)
+        except Exception:
+            pass
+        log.warning("JWT_SECRET not set — generated persistent secret in .jwt_secret. Set JWT_SECRET in .env for production.")
+ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
-DATABASE_URL  = os.getenv("DATABASE_URL", "jyotisha.db")
+
+_db_env = os.environ.get("DATABASE_URL") or os.getenv("DATABASE_URL", "")
+if _db_env:
+    if _db_env.startswith("sqlite:///") or _db_env.startswith("postgresql://") or os.path.isabs(_db_env):
+        DATABASE_URL = _db_env
+    else:
+        DATABASE_URL = str((ROOT_DIR / _db_env).resolve())
+else:
+    if APP_ENV == "production":
+        raise RuntimeError("DATABASE_URL must point to a persistent database path in production")
+    DATABASE_URL = str((ROOT_DIR / "jyotisha.db").resolve())
+if APP_ENV == "production" and not os.path.isabs(DATABASE_URL):
+    raise RuntimeError("DATABASE_URL must be an absolute path on persistent storage in production")
+
 
 # ─── FastAPI App ─────────────────────────────────────────────
 app = FastAPI(
@@ -51,9 +101,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Restrict in production
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,9 +119,15 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# ─── Homam SPA (Vite + React Router build in ./homam) ─────────
-ROOT_DIR = pathlib.Path(__file__).parent.resolve()
+# ─── Site Index & Homam SPA ──────────────────────────────────
 HOMAM_DIST = ROOT_DIR / "homam"
+
+
+def _site_index():
+    idx = ROOT_DIR / "index.html"
+    if idx.is_file():
+        return FileResponse(idx)
+    return {"message": "Jyotisha API — Vedic Astrology Platform", "status": "running"}
 
 
 def _homam_index():
@@ -76,8 +140,8 @@ def _homam_index():
 @app.get("/homam")
 @app.get("/homam/")
 async def homam_root():
-    """Serve React shell for /homam (redirect or empty path)."""
-    return _homam_index()
+    """Serve main website SPA with Homams section active."""
+    return _site_index()
 
 
 @app.get("/homam/{full_path:path}")
@@ -92,11 +156,35 @@ async def homam_spa(full_path: str):
         raise HTTPException(404, "Invalid path")
     if candidate.is_file():
         return FileResponse(candidate)
+    nested_index = candidate / "index.html"
+    if candidate.is_dir() and nested_index.is_file():
+        return FileResponse(nested_index)
     return _homam_index()
+
+
+def _admin_index():
+    idx = ROOT_DIR / "admin.html"
+    if not idx.is_file():
+        raise HTTPException(404, "Admin portal file not found")
+    return FileResponse(idx)
+
+
+@app.get("/admin")
+@app.get("/admin/")
+async def admin_root():
+    """Serve Admin Portal interface."""
+    return _admin_index()
+
+
+@app.get("/admin/{full_path:path}")
+async def admin_spa_subroute(full_path: str):
+    """Serve Admin Portal for any subpath."""
+    return _admin_index()
+
 
 # ─── Database Setup ──────────────────────────────────────────
 def get_db():
-    conn = sqlite3.connect(DATABASE_URL)
+    conn = sqlite3.connect(DATABASE_URL, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -157,17 +245,85 @@ def init_db():
             razorpay_order_id TEXT,
             razorpay_payment_id TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS payment_refunds (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            booking_id          TEXT,
+            service_name        TEXT NOT NULL,
+            razorpay_order_id   TEXT,
+            razorpay_payment_id TEXT NOT NULL,
+            amount_paise        INTEGER NOT NULL,
+            status              TEXT NOT NULL,
+            refund_id           TEXT,
+            reason              TEXT,
+            error_message       TEXT,
+            created_at          TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS payment_orders (
+            order_id            TEXT PRIMARY KEY,
+            booking_id          TEXT,
+            service_name        TEXT NOT NULL,
+            service_type        TEXT NOT NULL,
+            persons             INTEGER NOT NULL,
+            amount_paise        INTEGER NOT NULL,
+            currency            TEXT NOT NULL,
+            status              TEXT NOT NULL DEFAULT 'created',
+            payment_id          TEXT,
+            created_at          TEXT DEFAULT (datetime('now')),
+            updated_at          TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS payment_webhook_events (
+            event_id            TEXT PRIMARY KEY,
+            event               TEXT NOT NULL,
+            order_id            TEXT,
+            payment_id          TEXT,
+            received_at         TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_bookings_name_status ON bookings(name, status);
+        CREATE INDEX IF NOT EXISTS idx_bookings_rzp_payment ON bookings(razorpay_payment_id);
+        CREATE INDEX IF NOT EXISTS idx_payment_orders_booking ON payment_orders(booking_id);
     """)
     conn.commit()
+
+    # Admin tables & migrations
+    from setup_admin import init_admin_tables, auto_seed_admin_if_needed
+    init_admin_tables(conn)
+    auto_seed_admin_if_needed(DATABASE_URL)
+
     booking_columns = {row[1] for row in c.execute("PRAGMA table_info(bookings)")}
-    for column, column_type in (
+    admin_columns = [
         ("scheduled_date", "TEXT"),
         ("customer_name", "TEXT"),
         ("razorpay_order_id", "TEXT"),
         ("razorpay_payment_id", "TEXT"),
-    ):
+        ("booking_status", "TEXT DEFAULT 'pending'"),
+        ("payment_status", "TEXT DEFAULT 'paid'"),
+        ("admin_notes", "TEXT"),
+        ("rejection_reason", "TEXT"),
+        ("accepted_at", "TEXT"),
+        ("rejected_at", "TEXT"),
+        ("scheduled_time", "TEXT"),
+        ("scheduled_at", "TEXT"),
+        ("consultation_type", "TEXT"),
+        ("refund_id", "TEXT"),
+        ("refund_status", "TEXT DEFAULT 'none'"),
+        ("refund_amount", "REAL DEFAULT 0.0"),
+        ("refund_initiated_at", "TEXT"),
+        ("refund_error", "TEXT"),
+        ("updated_at", "TEXT"),
+    ]
+    for column, column_type in admin_columns:
         if column not in booking_columns:
             c.execute(f"ALTER TABLE bookings ADD COLUMN {column} {column_type}")
+    c.execute("""
+        UPDATE bookings
+        SET booking_status = 'pending',
+            payment_status = 'paid'
+        WHERE booking_status IS NULL OR booking_status = ''
+    """)
     conn.commit()
     conn.close()
 
@@ -219,8 +375,29 @@ class BookingConfirm(BaseModel):
     paidAt: Optional[str] = None
     razorpayOrderId: Optional[str] = None
     razorpayPaymentId: Optional[str] = None
+    razorpaySignature: Optional[str] = None       # for defence-in-depth re-verification
+    expectedAmountPaise: Optional[int] = None     # from order-creation response
     pdfBase64: Optional[str] = None  # PDF receipt for email attachment
     scheduledDate: Optional[str] = None  # YYYY-MM-DD; same for all participants
+
+class RazorpayOrderRequest(BaseModel):
+    name: str                              # service name — required for catalogue lookup
+    serviceType: Optional[str] = "pooja"   # "pooja" | "homam" | "consultation"
+    persons: Optional[int] = 1             # persons (homam only; ignored for poojas and consultations)
+    bookingId: Optional[str] = None
+    contactEmail: Optional[str] = None
+    contactPhone: Optional[str] = None
+    participants: List[dict] = Field(default_factory=list)
+    scheduledDate: Optional[str] = None
+    # Legacy: amount from browser is IGNORED — price is always from the catalogue
+    amount: Optional[float] = None
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    expected_amount_paise: Optional[int] = None  # echoed back from order-creation response
+    booking_id: Optional[str] = None
 
 # ─── Auth Utilities ──────────────────────────────────────────
 def hash_password(password: str) -> str:
@@ -229,7 +406,7 @@ def hash_password(password: str) -> str:
 def create_token(data: dict, expires_hours: int = ACCESS_TOKEN_EXPIRE_HOURS) -> str:
     """Simple JWT-like token (use python-jose in production)"""
     import base64, json, hmac
-    payload = {**data, "exp": (datetime.utcnow() + timedelta(hours=expires_hours)).isoformat()}
+    payload = {**data, "exp": (datetime.now(timezone.utc) + timedelta(hours=expires_hours)).isoformat()}
     header  = base64.b64encode(b'{"alg":"HS256"}').decode()
     body    = base64.b64encode(json.dumps(payload).encode()).decode()
     sig     = hmac.new(SECRET_KEY.encode(), f"{header}.{body}".encode(), "sha256").hexdigest()
@@ -244,7 +421,10 @@ def verify_token(token: str) -> Optional[dict]:
         expected = hmac.new(SECRET_KEY.encode(), f"{header}.{body}".encode(), "sha256").hexdigest()
         if sig != expected: return None
         payload = json.loads(base64.b64decode(body + "==").decode())
-        if datetime.fromisoformat(payload["exp"]) < datetime.utcnow(): return None
+        exp_dt = datetime.fromisoformat(payload["exp"])
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        if exp_dt < datetime.now(timezone.utc): return None
         return payload
     except Exception:
         return None
@@ -426,20 +606,49 @@ class VedicCalculator:
 
 calc = VedicCalculator()
 
-# ─── API Routes ──────────────────────────────────────────────
+# ─── API & SPA Routes ────────────────────────────────────────
 
-@app.get("/")
-async def root():
-    return {"message": "Jyotisha API — Vedic Astrology Platform", "status": "running"}
+SPA_PATHS = [
+    "/",
+    "/home",
+    "/horoscope",
+    "/horoscopes",
+    "/kundli",
+    "/kundali",
+    "/dashboard",
+    "/pooja",
+    "/poojas",
+    "/homams",
+    "/consult",
+    "/consultation",
+    "/consult-astrologer",
+    "/booking",
+    "/booking-form",
+    "/payment",
+    "/confirmation",
+]
+
+for _path in SPA_PATHS:
+    app.add_api_route(_path, _site_index, methods=["GET"], include_in_schema=False)
+    if _path != "/":
+        app.add_api_route(f"{_path}/", _site_index, methods=["GET"], include_in_schema=False)
 
 @app.get("/api/health")
 async def health():
-    email_configured = bool(RESEND_API_KEY or (SMTP_USER and SMTP_PASS))
+    email_configured = bool(
+        os.getenv("RESEND_API_KEY", "").strip() or
+        os.getenv("SMTP_PASS", "").strip()
+    )
+    razorpay_configured = bool(
+        os.getenv("RAZORPAY_KEY_ID", "").strip() and
+        os.getenv("RAZORPAY_KEY_SECRET", "").strip()
+    )
     return {
         "status": "healthy",
         "system": "Lahiri Sidereal Vedic",
         "version": "1.0.0",
         "email_configured": email_configured,
+        "razorpay_configured": razorpay_configured,
     }
 
 # ── Auth ──────────────────────────────────────────────────────
@@ -650,33 +859,538 @@ def send_email(to: str, subject: str, body: str, attachment: Optional[tuple] = N
     log.warning("Email not configured. Set RESEND_API_KEY or SMTP_PASS in .env")
     return False
 
-@app.post("/api/booking/confirm")
-async def confirm_booking(data: BookingConfirm, db=Depends(get_db)):
+# ── Razorpay REST Integration ───────────────────────────────────
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+def _rzp_client() -> RazorpayClient:
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        raise HTTPException(500, "Razorpay not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env")
+    return RazorpayClient(
+        key_id=RAZORPAY_KEY_ID,
+        key_secret=RAZORPAY_KEY_SECRET,
+        webhook_secret=RAZORPAY_WEBHOOK_SECRET or os.getenv("RAZORPAY_WEBHOOK_SECRET", ""),
+    )
+
+
+def _verify_razorpay_payment(
+    client: RazorpayClient,
+    order_id: str,
+    payment_id: str,
+    signature: str,
+    expected_amount_paise: Optional[int] = None,
+) -> tuple[dict, dict]:
+    """Verify the checkout signature and authoritative captured order/payment details."""
+    try:
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": order_id,
+            "razorpay_payment_id": payment_id,
+            "razorpay_signature": signature,
+        })
+    except Exception as e:
+        log.warning("Payment signature verification failed for order=%s", order_id)
+        raise HTTPException(400, "Payment verification failed — invalid signature") from e
+
+    try:
+        rzp_order = client.order.fetch(order_id)
+        rzp_payment = client.payment.fetch(payment_id)
+    except Exception as e:
+        log.error("Could not retrieve Razorpay payment details for order=%s: %s", order_id, e)
+        raise HTTPException(502, "Could not verify payment details with Razorpay") from e
+
+    if rzp_order.get("id") != order_id:
+        raise HTTPException(400, "Payment does not match the expected order")
+    if rzp_order.get("currency") != "INR" or rzp_payment.get("currency", "INR") != "INR":
+        raise HTTPException(400, "Invalid currency in payment")
+    try:
+        order_amount = int(rzp_order.get("amount", 0))
+        payment_amount = int(rzp_payment.get("amount", 0))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, "Invalid amount in payment details") from e
+    if order_amount <= 0 or payment_amount != order_amount:
+        raise HTTPException(400, "Payment amount does not match the Razorpay order")
+    if expected_amount_paise is not None and order_amount != expected_amount_paise:
+        raise HTTPException(400, "Payment amount does not match the expected booking amount")
+    if rzp_payment.get("id") not in (None, payment_id):
+        raise HTTPException(400, "Razorpay returned a different payment")
+    if rzp_payment.get("order_id") != order_id:
+        raise HTTPException(400, "Payment does not match the expected order")
+    if rzp_payment.get("status") != "captured":
+        raise HTTPException(400, "Payment has not been captured")
+    return rzp_order, rzp_payment
+
+
+def handle_overbooked_refund(
+    db,
+    booking_id: str,
+    service_name: str,
+    razorpay_order_id: str,
+    razorpay_payment_id: str,
+    amount_paise: int,
+    reason: str = "Booking capacity exceeded (50/50 limit reached)",
+) -> dict:
     """
-    Save booking and send admin + user confirmation emails.
-    Triggered only after successful payment (frontend calls this after payment completion).
+    Safely initiates refund via Razorpay for an overbooked customer,
+    logs the event to payment_refunds table, and notifies admin.
     """
-    import json
-    log.info(f"Booking confirm received: {data.id} {data.name}")
+    refund_id = None
+    status = "manual_refund_required"
+    error_msg = None
+
+    try:
+        client = _rzp_client()
+        refund = client.payment.refund(razorpay_payment_id, {
+            "amount": amount_paise,
+            "notes": {
+                "reason": reason,
+                "booking_id": booking_id,
+                "service": service_name,
+            }
+        })
+        refund_id = refund.get("id") if isinstance(refund, dict) else str(refund)
+        status = "refund_initiated"
+        log.info(f"Automatic refund initiated: {refund_id} for payment={razorpay_payment_id} booking={booking_id}")
+    except Exception as e:
+        error_msg = str(e)
+        log.error(f"Automatic refund failed for payment={razorpay_payment_id}: {e}. Flagging for manual refund.")
 
     try:
         db.execute(
-                """INSERT INTO bookings (
-                         id, type, name, customer_name, price, persons, participants,
-                         contact_email, contact_phone, status, paid_at, scheduled_date,
-                         razorpay_order_id, razorpay_payment_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (data.id, data.type, data.name,
-                 data.participants[0].get("name") if data.participants else None,
-                 data.price, data.persons or 1, json.dumps(data.participants),
-                 data.contactEmail, data.contactPhone, data.status or "pending_payment",
-                 data.paidAt, data.scheduledDate, data.razorpayOrderId,
-                 data.razorpayPaymentId)
+            """INSERT INTO payment_refunds (
+                booking_id, service_name, razorpay_order_id, razorpay_payment_id,
+                amount_paise, status, refund_id, reason, error_message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (booking_id, service_name, razorpay_order_id, razorpay_payment_id,
+             amount_paise, status, refund_id, reason, error_msg)
         )
         db.commit()
+    except Exception as db_err:
+        log.error(f"Failed to record refund in database: {db_err}")
+
+    admin_subject = f"[ACTION REQUIRED] Overbooking Refund for {service_name} ({booking_id})"
+    admin_body = f"""Overbooking alert:
+A customer payment was received after the capacity limit was reached:
+Service: {service_name}
+Booking ID: {booking_id}
+Order ID: {razorpay_order_id}
+Payment ID: {razorpay_payment_id}
+Amount: ₹{amount_paise / 100:.2f}
+Refund Status: {status}
+Refund ID: {refund_id or 'None'}
+Error: {error_msg or 'None'}
+
+Please verify this in the Razorpay dashboard immediately.
+"""
+    try:
+        send_email(ADMIN_EMAIL, admin_subject, admin_body)
+    except Exception as mail_err:
+        log.error(f"Failed to send admin refund alert: {mail_err}")
+
+    return {
+        "status": status,
+        "refund_id": refund_id,
+        "error_message": error_msg,
+    }
+
+# ── Admin Portal APIs ─────────────────────────────────────────
+from admin_api import setup_admin_routes
+setup_admin_routes(
+    app=app,
+    get_db=get_db,
+    oauth2_scheme=oauth2_scheme,
+    verify_token=verify_token,
+    create_token=create_token,
+    _rzp_client=_rzp_client,
+    send_email=send_email,
+    get_all_services_availability=get_all_services_availability,
+)
+
+@app.get("/api/services")
+async def list_services(db=Depends(get_db)):
+    """Authoritative service catalogue — names, types, and server-calculated prices."""
+    return {"services": all_services(db)}
+
+@app.get("/api/services/availability")
+async def get_services_availability(db=Depends(get_db)):
+    """Live slot availability for all poojas and homams (limit 50 per individual service)."""
+    return {
+        "max_limit": SERVICE_BOOKING_LIMIT,
+        "availability": get_all_services_availability(db),
+    }
+
+@app.post("/api/payment/order")
+async def create_payment_order(data: RazorpayOrderRequest, db=Depends(get_db)):
+    """
+    Step 1: Create a Razorpay order.
+    Price is ALWAYS calculated server-side from the service catalogue.
+    Browser-supplied amounts are completely ignored.
+    Enforces the strict 50-booking limit per service.
+    """
+    if not data.name or not data.name.strip():
+        raise HTTPException(400, "Service name is required")
+
+    service_type = (data.serviceType or "pooja").strip().lower()
+    persons = max(1, int(data.persons or 1))
+
+    try:
+        svc, authoritative_total = validate_and_price(data.name, service_type, persons, db=db)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    confirmed_count = get_confirmed_booking_count(db, svc.name)
+    if confirmed_count >= SERVICE_BOOKING_LIMIT:
+        raise HTTPException(
+            400,
+            f"Bookings Closed — Maximum Capacity Reached ({SERVICE_BOOKING_LIMIT}/{SERVICE_BOOKING_LIMIT}) for '{svc.name}'."
+        )
+
+    amount_paise = int(round(authoritative_total * 100))
+    MAX_PAISE = int(os.getenv("MAX_ORDER_PAISE", "100000000"))
+    if amount_paise > MAX_PAISE:
+        raise HTTPException(400, "Amount exceeds maximum allowed")
+
+    client = _rzp_client()
+    if data.bookingId:
+        existing_booking = db.execute(
+            "SELECT name, type, status FROM bookings WHERE id = ?",
+            (data.bookingId,),
+        ).fetchone()
+        if existing_booking:
+            if existing_booking["status"] in ("paid", "confirmed"):
+                raise HTTPException(409, "This booking has already been paid")
+            if (
+                canonical_service_name(existing_booking["name"]) != canonical_service_name(svc.name)
+                or existing_booking["type"] != svc.type
+            ):
+                raise HTTPException(409, "Booking ID is already associated with a different service")
+
+    receipt = (data.bookingId or f"tav_{int(datetime.now(timezone.utc).timestamp())}")[:40]
+    notes = {
+        "booking_id": data.bookingId or "",
+        "service": svc.name,
+        "persons": str(persons),
+        "server_amount_paise": str(amount_paise),
+    }
+    if data.contactEmail:
+        notes["email"] = data.contactEmail
+    try:
+        order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "notes": notes,
+        })
     except Exception as e:
-        log.error(f"DB insert failed: {e}")
-        raise HTTPException(500, "Failed to save booking")
+        log.error(f"Razorpay order.create failed: {e}")
+        raise HTTPException(502, "Could not create payment order. Please try again.")
+    if (
+        order.get("currency") != "INR"
+        or int(order.get("amount", 0)) != amount_paise
+        or not order.get("id")
+    ):
+        log.error("Razorpay returned an unexpected order response for booking=%s", data.bookingId)
+        raise HTTPException(502, "Razorpay returned invalid order details")
+
+    try:
+        db.execute(
+            """INSERT INTO payment_orders (
+                   order_id, booking_id, service_name, service_type, persons,
+                   amount_paise, currency, status
+               ) VALUES (?, ?, ?, ?, ?, ?, 'INR', 'created')""",
+            (order["id"], data.bookingId, svc.name, svc.type, persons, amount_paise),
+        )
+        if data.bookingId:
+            participants_json = __import__("json").dumps(data.participants)
+            existing = db.execute(
+                "SELECT id FROM bookings WHERE id = ?", (data.bookingId,)
+            ).fetchone()
+            if existing:
+                db.execute(
+                    """UPDATE bookings SET
+                           name=?, type=?, price=?, persons=?, participants=?,
+                           contact_email=?, contact_phone=?, status='pending_payment',
+                           paid_at=NULL, scheduled_date=?, razorpay_order_id=?,
+                           razorpay_payment_id=NULL, booking_status='pending',
+                           payment_status='pending', updated_at=datetime('now')
+                       WHERE id=?""",
+                    (
+                        svc.name, svc.type, authoritative_total, persons, participants_json,
+                        data.contactEmail or "", data.contactPhone or "", data.scheduledDate,
+                        order["id"], data.bookingId,
+                    ),
+                )
+            else:
+                db.execute(
+                    """INSERT INTO bookings (
+                           id, type, name, customer_name, price, persons, participants,
+                           contact_email, contact_phone, status, scheduled_date,
+                           razorpay_order_id, booking_status, payment_status
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', ?, ?, 'pending', 'pending')""",
+                    (
+                        data.bookingId, svc.type, svc.name,
+                        (data.participants[0].get("name") if data.participants else ""),
+                        authoritative_total, persons, participants_json,
+                        data.contactEmail or "", data.contactPhone or "",
+                        data.scheduledDate, order["id"],
+                    ),
+                )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        log.error("Could not persist payment order %s: %s", order["id"], e)
+        raise HTTPException(500, "Could not save payment order details") from e
+
+    log.info(
+        f"Order created: {order['id']} service={svc.name!r} "
+        f"persons={persons} amount={amount_paise}p booking={data.bookingId}"
+    )
+    return {
+        "key_id": RAZORPAY_KEY_ID,
+        "order_id": order["id"],
+        "amount": order["amount"],       # paise confirmed by Razorpay
+        "currency": order["currency"],
+        "service_name": svc.name,
+        "service_type": svc.type,
+        "persons": persons,
+        "unit_price": svc.price,
+    }
+
+@app.post("/api/payment/verify")
+async def verify_payment(data: RazorpayVerifyRequest, db=Depends(get_db)):
+    """
+    Step 2: Verify HMAC-SHA256 signature AND fetch the order from Razorpay
+    to cross-check amount, currency, and captured payment status.
+    Rejects: bad signature, wrong currency, wrong amount, non-captured status.
+    """
+    if not data.razorpay_order_id or not data.razorpay_payment_id or not data.razorpay_signature:
+        raise HTTPException(400, "Missing required payment verification fields")
+
+    client = _rzp_client()
+
+    rzp_order, rzp_payment = _verify_razorpay_payment(
+        client,
+        data.razorpay_order_id,
+        data.razorpay_payment_id,
+        data.razorpay_signature,
+        data.expected_amount_paise,
+    )
+    order_record = db.execute(
+        "SELECT booking_id, amount_paise FROM payment_orders WHERE order_id = ?",
+        (data.razorpay_order_id,),
+    ).fetchone()
+    if not order_record:
+        raise HTTPException(400, "Payment order was not created by this server")
+    if data.booking_id and order_record["booking_id"] != data.booking_id:
+        raise HTTPException(400, "Payment order does not match this booking")
+    if int(order_record["amount_paise"]) != int(rzp_order["amount"]):
+        raise HTTPException(400, "Payment amount does not match the saved order")
+    db.execute(
+        """UPDATE payment_orders SET status='captured', payment_id=?, updated_at=datetime('now')
+           WHERE order_id=? AND status != 'captured'""",
+        (data.razorpay_payment_id, data.razorpay_order_id),
+    )
+    db.commit()
+
+    log.info(
+        f"Payment verified order={data.razorpay_order_id} "
+        f"payment={data.razorpay_payment_id} amount={rzp_order.get('amount')}p"
+    )
+    return {
+        "verified": True,
+        "razorpay_order_id": data.razorpay_order_id,
+        "razorpay_payment_id": data.razorpay_payment_id,
+        "amount_paise": rzp_order.get("amount"),
+        "currency": rzp_order.get("currency"),
+    }
+
+
+@app.post("/api/booking/confirm")
+async def confirm_booking(data: BookingConfirm, db=Depends(get_db)):
+    """
+    Step 3: Save booking linked to a verified Razorpay payment.
+    - Re-verifies the payment signature server-side.
+    - Validates the service name against the catalogue and calculates
+      the authoritative price (ignores any price sent by the browser).
+    - Idempotent: safely handles retries and page refreshes.
+    """
+    import json
+    log.info(f"Booking confirm received: id={data.id} service={data.name!r}")
+
+    # ── Guard 1: payment IDs must be present ────────────────────────────────
+    if not data.razorpayPaymentId or not data.razorpayOrderId or not data.razorpaySignature:
+        raise HTTPException(400, "A verified Razorpay payment is required to confirm a booking")
+
+    # ── Guard 2: validate persisted order ownership and authoritative amount ─
+    order_record = db.execute(
+        """SELECT booking_id, service_name, service_type, persons, amount_paise, status
+           FROM payment_orders WHERE order_id = ?""",
+        (data.razorpayOrderId,),
+    ).fetchone()
+    if not order_record or order_record["booking_id"] != data.id:
+        raise HTTPException(400, "Payment order is not associated with this booking")
+
+    # ── Guard 3: validate service and calculate authoritative price ──────────
+    service_type = (data.type or "pooja").strip().lower()
+    persons = max(1, int(data.persons or 1))
+    try:
+        svc, authoritative_price = validate_and_price(data.name, service_type, persons)
+    except ValueError as e:
+        raise HTTPException(400, f"Invalid service: {e}")
+    expected_amount_paise = int(round(authoritative_price * 100))
+    if (
+        canonical_service_name(order_record["service_name"]) != canonical_service_name(svc.name)
+        or order_record["service_type"] != svc.type
+        or int(order_record["persons"]) != persons
+        or int(order_record["amount_paise"]) != expected_amount_paise
+    ):
+        raise HTTPException(400, "Payment order does not match this booking's service or amount")
+
+    client = _rzp_client()
+    rzp_order, _ = _verify_razorpay_payment(
+        client,
+        data.razorpayOrderId,
+        data.razorpayPaymentId,
+        data.razorpaySignature,
+        expected_amount_paise,
+    )
+    if int(rzp_order["amount"]) != int(order_record["amount_paise"]):
+        raise HTTPException(400, "Payment amount does not match the saved order")
+
+    # ── Guard 4: participants required ──────────────────────────────────────
+    if not data.participants:
+        raise HTTPException(400, "At least one participant is required")
+
+    # ── Concurrency-safe capacity check and DB save ─────────────────────────
+    with booking_lock:
+        # Idempotent check 1: by booking ID
+        try:
+            existing = db.execute(
+                """SELECT id, status, razorpay_order_id, razorpay_payment_id
+                   FROM bookings WHERE id = ?""",
+                (data.id,),
+            ).fetchone()
+        except Exception as e:
+            log.error(f"DB lookup failed: {e}")
+            raise HTTPException(500, "Database error")
+
+        if existing and existing["status"] in ("paid", "confirmed"):
+            if (
+                existing["razorpay_order_id"] == data.razorpayOrderId
+                and existing["razorpay_payment_id"] == data.razorpayPaymentId
+            ):
+                log.info("Booking %s already confirmed — idempotent retry", data.id)
+                return {
+                    "message": "Booking already confirmed",
+                    "id": data.id,
+                    "emails_sent": {"admin": False, "user": False},
+                }
+            refund_res = handle_overbooked_refund(
+                db=db,
+                booking_id=data.id,
+                service_name=svc.name,
+                razorpay_order_id=data.razorpayOrderId,
+                razorpay_payment_id=data.razorpayPaymentId,
+                amount_paise=expected_amount_paise,
+                reason="A second captured payment was received for an already-paid booking",
+            )
+            ref_id = refund_res.get("refund_id") or "manual-review"
+            raise HTTPException(
+                409,
+                f"This booking was already paid. The additional payment is being refunded "
+                f"(Reference: {ref_id}).",
+            )
+
+        # Idempotent check 2: by razorpay_payment_id (prevent duplicate booking for same payment in production)
+        if data.razorpayPaymentId:
+            try:
+                existing_pay = db.execute(
+                    "SELECT id, status FROM bookings WHERE razorpay_payment_id = ? AND id != ?",
+                    (data.razorpayPaymentId, data.id)
+                ).fetchone()
+                if existing_pay:
+                    log.info(
+                        f"Payment {data.razorpayPaymentId} already used for booking {existing_pay['id']} — idempotent"
+                    )
+                    return {
+                        "message": "Booking already confirmed for this payment",
+                        "id": existing_pay["id"],
+                        "emails_sent": {"admin": False, "user": False},
+                    }
+            except Exception as e:
+                log.error(f"DB payment lookup failed: {e}")
+                raise HTTPException(500, "Database error")
+
+        # Capacity check right before recording booking
+        confirmed_count = get_confirmed_booking_count(db, svc.name)
+        if confirmed_count >= SERVICE_BOOKING_LIMIT:
+            log.warning(
+                f"Booking capacity reached for '{svc.name}' ({confirmed_count}/{SERVICE_BOOKING_LIMIT})! "
+                f"Initiating refund for payment={data.razorpayPaymentId} booking={data.id}"
+            )
+            amount_paise = int(round(authoritative_price * 100))
+            refund_res = handle_overbooked_refund(
+                db=db,
+                booking_id=data.id,
+                service_name=svc.name,
+                razorpay_order_id=data.razorpayOrderId or "",
+                razorpay_payment_id=data.razorpayPaymentId,
+                amount_paise=amount_paise,
+                reason=f"Capacity limit reached ({SERVICE_BOOKING_LIMIT}/{SERVICE_BOOKING_LIMIT})",
+            )
+            ref_id = refund_res.get("refund_id") or "manual-review"
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Bookings Closed — Maximum Capacity Reached ({SERVICE_BOOKING_LIMIT}/{SERVICE_BOOKING_LIMIT}) "
+                    f"for '{svc.name}'. Your payment has been received and a refund "
+                    f"({refund_res.get('status')}) has been initiated (Reference: {ref_id}). "
+                    f"Customer support has been notified."
+                ),
+            )
+
+        try:
+            if existing:
+                db.execute(
+                    """UPDATE bookings SET
+                           type=?, name=?, customer_name=?, price=?, persons=?, participants=?,
+                           contact_email=?, contact_phone=?, status='paid', paid_at=?,
+                           scheduled_date=?, razorpay_order_id=?, razorpay_payment_id=?,
+                           booking_status='pending', payment_status='paid', updated_at=datetime('now')
+                       WHERE id=?""",
+                    (
+                        svc.type, svc.name,
+                        data.participants[0].get("name") if data.participants else None,
+                        authoritative_price, persons, json.dumps(data.participants),
+                        data.contactEmail, data.contactPhone, data.paidAt, data.scheduledDate,
+                        data.razorpayOrderId, data.razorpayPaymentId, data.id,
+                    ),
+                )
+            else:
+                db.execute(
+                    """INSERT INTO bookings (
+                             id, type, name, customer_name, price, persons, participants,
+                             contact_email, contact_phone, status, paid_at, scheduled_date,
+                             razorpay_order_id, razorpay_payment_id, booking_status, payment_status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, 'pending', 'paid')""",
+                    (
+                        data.id, svc.type, svc.name,
+                        data.participants[0].get("name") if data.participants else None,
+                        authoritative_price, persons, json.dumps(data.participants),
+                        data.contactEmail, data.contactPhone, data.paidAt,
+                        data.scheduledDate, data.razorpayOrderId, data.razorpayPaymentId,
+                    ),
+                )
+            db.execute(
+                """UPDATE payment_orders SET status='captured', payment_id=?, updated_at=datetime('now')
+                   WHERE order_id=?""",
+                (data.razorpayPaymentId, data.razorpayOrderId),
+            )
+            db.commit()
+
+        except Exception as e:
+            log.error(f"DB insert failed: {e}")
+            raise HTTPException(500, "Failed to save booking")
 
     # Admin email - full booking details
     parts_text = "\n".join(
@@ -737,7 +1451,197 @@ Tara Astro Vision
         "emails_sent": {"admin": admin_sent, "user": user_sent}
     }
 
+
+# ── Razorpay Webhook ─────────────────────────────────────────────────────────
+
+@app.post("/api/payment/webhook")
+async def razorpay_webhook(request: Request, db=Depends(get_db)):
+    """
+    Razorpay webhook for payment reconciliation.
+    Verifies X-Razorpay-Signature using HMAC-SHA256 + RAZORPAY_WEBHOOK_SECRET.
+
+    Configure in Razorpay Dashboard → Settings → Webhooks:
+      URL:    https://www.taraastrovision.com/api/payment/webhook
+      Events: payment.captured, payment.failed
+    """
+    import hmac as _hmac, hashlib as _hashlib, json as _json
+
+    body_bytes = await request.body()
+
+    _webhook_secret = (RAZORPAY_WEBHOOK_SECRET or os.getenv("RAZORPAY_WEBHOOK_SECRET", "")).strip()
+    if not _webhook_secret:
+        log.error("Rejecting Razorpay webhook because RAZORPAY_WEBHOOK_SECRET is not configured")
+        raise HTTPException(503, "Webhook verification is not configured")
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    expected = _hmac.new(
+        _webhook_secret.encode(), body_bytes, _hashlib.sha256
+    ).hexdigest()
+    if not _hmac.compare_digest(expected, signature):
+        log.warning("Webhook signature verification failed")
+        raise HTTPException(400, "Invalid webhook signature")
+
+    try:
+        payload = _json.loads(body_bytes)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Invalid JSON payload")
+
+    event = payload.get("event", "")
+    entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    order_entity = payload.get("payload", {}).get("order", {}).get("entity", {})
+    order_id = entity.get("order_id") or order_entity.get("id") or ""
+    payment_id = entity.get("id", "")
+    event_id = request.headers.get("x-razorpay-event-id") or _hashlib.sha256(body_bytes).hexdigest()
+
+    if event not in ("payment.captured", "payment.failed"):
+        return {"status": "ignored", "event": event}
+
+    try:
+        inserted = db.execute(
+            """INSERT OR IGNORE INTO payment_webhook_events (event_id, event, order_id, payment_id)
+               VALUES (?, ?, ?, ?)""",
+            (event_id, event, order_id or None, payment_id or None),
+        ).rowcount
+        if not inserted:
+            return {"status": "duplicate", "event": event}
+
+        if event == "payment.captured":
+            payment_order = db.execute(
+                "SELECT * FROM payment_orders WHERE order_id = ?", (order_id,)
+            ).fetchone()
+            if not payment_order:
+                log.warning("Captured webhook references an unknown payment order")
+            elif (
+                entity.get("status") != "captured"
+                or entity.get("currency") != payment_order["currency"]
+                or int(entity.get("amount", 0)) != int(payment_order["amount_paise"])
+            ):
+                raise HTTPException(400, "Captured payment details do not match the saved order")
+            else:
+                with booking_lock:
+                    payment_order = db.execute(
+                        "SELECT * FROM payment_orders WHERE order_id = ?", (order_id,)
+                    ).fetchone()
+                    if (
+                        payment_order["status"] == "captured"
+                        and payment_order["payment_id"] not in (None, payment_id)
+                    ):
+                        refund = handle_overbooked_refund(
+                            db,
+                            payment_order["booking_id"] or "",
+                            payment_order["service_name"],
+                            order_id,
+                            payment_id,
+                            int(payment_order["amount_paise"]),
+                            reason="A second payment was captured for the same Razorpay order",
+                        )
+                        log.warning("Duplicate capture for order=%s; refund status=%s", order_id, refund["status"])
+                    else:
+                        db.execute(
+                            """UPDATE payment_orders SET status='captured', payment_id=?,
+                                   updated_at=datetime('now') WHERE order_id=?""",
+                            (payment_id, order_id),
+                        )
+                    booking = db.execute(
+                        "SELECT * FROM bookings WHERE razorpay_order_id = ?", (order_id,)
+                    ).fetchone()
+                    if booking and not (
+                        payment_order["status"] == "captured"
+                        and payment_order["payment_id"] not in (None, payment_id)
+                    ):
+                        if booking["status"] in ("paid", "confirmed"):
+                            if booking["razorpay_payment_id"] != payment_id:
+                                refund = handle_overbooked_refund(
+                                    db,
+                                    booking["id"],
+                                    booking["name"],
+                                    order_id,
+                                    payment_id,
+                                    int(payment_order["amount_paise"]),
+                                    reason="A second captured payment was received for an already-paid booking",
+                                )
+                                log.warning(
+                                    "Duplicate payment captured for booking=%s; refund status=%s",
+                                    booking["id"],
+                                    refund["status"],
+                                )
+                        else:
+                            confirmed_count = get_confirmed_booking_count(db, booking["name"])
+                            if confirmed_count >= SERVICE_BOOKING_LIMIT:
+                                refund = handle_overbooked_refund(
+                                    db,
+                                    booking["id"],
+                                    booking["name"],
+                                    order_id,
+                                    payment_id,
+                                    int(payment_order["amount_paise"]),
+                                )
+                                db.execute(
+                                    """UPDATE bookings SET status='refund_pending', payment_status=?,
+                                           booking_status='rejected', rejection_reason=?, updated_at=datetime('now')
+                                       WHERE id=?""",
+                                    (
+                                        refund["status"],
+                                        "Capacity limit reached; refund initiated or requires manual review",
+                                        booking["id"],
+                                    ),
+                                )
+                            else:
+                                db.execute(
+                                    """UPDATE bookings SET status='paid', payment_status='paid',
+                                           booking_status='pending', paid_at=datetime('now'),
+                                           razorpay_payment_id=?, updated_at=datetime('now')
+                                       WHERE id=?""",
+                                    (payment_id, booking["id"]),
+                                )
+                                booking_data = dict(booking)
+                                booking_data["razorpay_payment_id"] = payment_id
+                                booking_data["paid_at"] = datetime.now(timezone.utc).isoformat()
+                                db.commit()
+                                details = "\n".join(
+                                    f"  {i + 1}. {p.get('name', '')} — Gotra: {p.get('gotra', '')}, "
+                                    f"Relation: {p.get('relation', '')}"
+                                    for i, p in enumerate(_json.loads(booking_data["participants"] or "[]"))
+                                )
+                                message = (
+                                    f"Booking ID: {booking_data['id']}\n"
+                                    f"Service: {booking_data['name']}\n"
+                                    f"Amount Paid: ₹{booking_data['price']:,.0f}\n"
+                                    f"Participants:\n{details}\n"
+                                    f"Contact: {booking_data['contact_email']} | {booking_data['contact_phone']}"
+                                )
+                                send_email(ADMIN_EMAIL, f"Tara Astro Vision — New Booking {booking_data['id']}", message)
+                                send_email(
+                                    booking_data["contact_email"],
+                                    f"Tara Astro Vision — Booking Confirmed {booking_data['id']}",
+                                    message,
+                                )
+
+        elif event == "payment.failed" and order_id:
+            db.execute(
+                """UPDATE payment_orders SET status='failed', payment_id=?,
+                       updated_at=datetime('now') WHERE order_id=? AND status != 'captured'""",
+                (payment_id or None, order_id),
+            )
+            db.execute(
+                """UPDATE bookings SET status='pending_payment', payment_status='failed',
+                       updated_at=datetime('now')
+                   WHERE razorpay_order_id=? AND status NOT IN ('paid', 'confirmed')""",
+                (order_id,),
+            )
+
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        log.error("Razorpay webhook processing failed for event=%s: %s", event, e, exc_info=True)
+        raise HTTPException(500, "Webhook processing failed") from e
+
+    return {"status": "ok", "event": event}
+
 # ── Language Preference ──────────────────────────────────────
+
 
 @app.put("/api/user/language")
 async def update_language(data: LangUpdate, user=Depends(get_current_user), db=Depends(get_db)):
@@ -747,6 +1651,34 @@ async def update_language(data: LangUpdate, user=Depends(get_current_user), db=D
     db.execute("UPDATE users SET lang = ? WHERE id = ?", (data.lang, user["id"]))
     db.commit()
     return {"message": "Language updated", "lang": data.lang}
+
+# ─── Root site static assets ─────────────────────────────────
+class PublicSiteFiles(StaticFiles):
+    """Serve frontend assets without exposing backend, database, or secret files."""
+
+    PUBLIC_SUFFIXES = {
+        ".html", ".js", ".css", ".jpg", ".jpeg", ".png", ".svg", ".ico",
+        ".webp", ".avif", ".woff", ".woff2", ".ttf",
+    }
+
+    async def get_response(self, path: str, scope):
+        parts = pathlib.PurePosixPath(path).parts
+        candidate = (ROOT_DIR / path).resolve()
+        try:
+            candidate.relative_to(ROOT_DIR)
+        except ValueError:
+            raise HTTPException(404, "Not found")
+        if any(part.startswith(".") for part in parts):
+            raise HTTPException(404, "Not found")
+        if candidate.is_dir() and path:
+            raise HTTPException(404, "Not found")
+        if candidate.is_file() and candidate.suffix.lower() not in self.PUBLIC_SUFFIXES:
+            raise HTTPException(404, "Not found")
+        return await super().get_response(path, scope)
+
+
+# Mounted after API and SPA routes so API paths keep their intended handlers.
+app.mount("/", PublicSiteFiles(directory=str(ROOT_DIR), html=True), name="site")
 
 # ─── Entry Point ─────────────────────────────────────────────
 if __name__ == "__main__":

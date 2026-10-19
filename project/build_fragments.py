@@ -35,8 +35,7 @@ Path(__file__).parent.joinpath("_pooja_body.html").write_text(pooja_body, encodi
 
 homam_body = "\n".join(lines[794:1223])  # lines 795–1223 (1-based): page-hero through homam-note
 homam_body = sub_homam_buttons(homam_body)
-# Fix homam detail links for pages served from /project/
-homam_body = homam_body.replace('href="homam/', 'href="../homam/')
+# Root-absolute /homam/<slug> works from both index.html and /project/*.html
 Path(__file__).parent.joinpath("_homam_body.html").write_text(homam_body, encoding="utf-8")
 
 print("Wrote _pooja_body.html and _homam_body.html")

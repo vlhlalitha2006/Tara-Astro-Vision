@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Noto+Sans+Telugu:wght@300;400;500&family=Noto+Sans+Devanagari:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body data-page="booking">
   <nav class="navbar" id="navbar">
@@ -20,8 +21,8 @@
       <div class="nav-links" id="navLinks">
         <a href="index.html" class="nav-link" data-i18n="nav_home">Home</a>
         <a href="horoscope.html" class="nav-link" data-i18n="nav_horoscope">Horoscope</a>
-        <a href="kundli.html" class="nav-link nav-link-protected" data-i18n="nav_kundli">Kundli</a>
-        <a href="dashboard.html" class="nav-link nav-link-protected" data-i18n="nav_dashboard">Dashboard</a>
+        <a href="kundli.html" class="nav-link" data-i18n="nav_kundli">Kundli</a>
+        <a href="dashboard.html" class="nav-link" data-i18n="nav_dashboard">Dashboard</a>
         <a href="pooja.html" class="nav-link active">Poojas</a>
         <a href="homam.html" class="nav-link">Homams</a>
         <a href="consult.html" class="nav-link">Consult Astrologer</a>
@@ -44,21 +45,6 @@
             <button type="button" data-lang="ml"><span>🇮🇳</span> മലയാളം</button>
             <button type="button" data-lang="kn"><span>🇮🇳</span> ಕನ್ನಡ</button>
             <button type="button" data-lang="mr"><span>🇮🇳</span> मराठी</button>
-          </div>
-        </div>
-        <div class="auth-buttons" id="authButtons">
-          <button type="button" class="btn-login" data-i18n="login">Login</button>
-          <button type="button" class="btn-register" data-i18n="register">Register</button>
-        </div>
-        <div class="user-menu hidden" id="userMenu">
-          <button type="button" class="user-avatar-btn">
-            <span class="avatar-circle" id="avatarInitial">A</span>
-            <span id="userName">User</span>
-          </button>
-          <div class="user-dropdown hidden" id="userDropdown">
-            <a href="dashboard.html">Dashboard</a>
-            <a href="dashboard.html">Profile</a>
-            <a href="#" id="logoutLink">Logout</a>
           </div>
         </div>
         <button type="button" class="cart-btn" id="cartBtn">
@@ -116,68 +102,6 @@
     </div>
   </footer>
   <div class="modal-overlay hidden" id="modalOverlay"></div>
-  <div class="modal hidden" id="modal-login">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="login_title">Welcome Back</h2>
-      <p data-i18n="login_sub">Login to access your personal guidance</p>
-    </div>
-    <form class="modal-form" id="formLogin">
-      <div class="form-group">
-        <label data-i18n="email">Email</label>
-        <input type="email" id="loginEmail" required class="form-input" placeholder="your@email.com" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="password">Password</label>
-        <input type="password" id="loginPass" required class="form-input" placeholder="••••••••" autocomplete="current-password" />
-      </div>
-      <div class="modal-error hidden" id="loginError"></div>
-      <button type="submit" class="btn-primary full-width" data-i18n="login">Login</button>
-      <p class="modal-switch" data-i18n="no_account">Don't have an account?
-        <a href="#" data-open-modal="register" data-i18n="register_link">Register</a>
-      </p>
-    </form>
-  </div>
-  <div class="modal hidden" id="modal-register">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="register_title">Begin Your Journey</h2>
-      <p data-i18n="register_sub">Create your sacred account</p>
-    </div>
-    <form class="modal-form" id="formRegister">
-      <div class="form-group">
-        <label data-i18n="full_name">Full Name</label>
-        <input type="text" id="regName" required class="form-input" placeholder="Your Name" autocomplete="name" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="email">Email</label>
-        <input type="email" id="regEmail" required class="form-input" placeholder="your@email.com" autocomplete="email" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="password">Password</label>
-        <input type="password" id="regPass" required class="form-input" placeholder="Min 8 characters" minlength="8" autocomplete="new-password" />
-      </div>
-      <div class="modal-error hidden" id="registerError"></div>
-      <button type="submit" class="btn-primary full-width" data-i18n="register">Register</button>
-      <p class="modal-switch">Already have an account?
-        <a href="#" data-open-modal="login" data-i18n="login_link">Login</a>
-      </p>
-    </form>
-  </div>
-  <div class="modal hidden" id="modal-loginRequired">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="auth_required">Login Required</h2>
-      <p data-i18n="auth_required_desc">Please login or register to access your personalized birth chart and predictions.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn-primary" data-open-modal="login" data-i18n="login">Login</button>
-      <button type="button" class="btn-secondary" data-open-modal="register" data-i18n="register">Register</button>
-    </div>
-  </div>
   <div class="modal hidden" id="modal-loading">
     <div class="loading-inner">
       <div class="chakra-spinner">𑁍</div>
@@ -194,6 +118,7 @@
       <p>Payment is not available yet. No payment has been made and this request is not confirmed.</p>
     </div>
   </div>
+  <script src="/api-config.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

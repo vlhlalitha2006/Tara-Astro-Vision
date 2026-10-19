@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/lalithasharmavelpuru/Tara Astro Vision/.venv/bin/python3.14" "$0" "$@"
+'''exec' "/Users/lalithasharmavelpuru/Tara Astro Vision copy/.venv/bin/python" "$0" "$@"
 ' '''
 import sys
 from pip._internal.cli.main import main

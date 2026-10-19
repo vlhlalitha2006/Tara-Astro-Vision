@@ -600,6 +600,17 @@ export const HOMAMS = [
   },
 ]
 
+export function normalizeHomamSlug(slug) {
+  if (!slug) return ''
+  return String(slug)
+    .replace(/\/index\.html$/i, '')
+    .replace(/\/+$/, '')
+    .split('/')
+    .filter(Boolean)
+    .pop() || ''
+}
+
 export function getHomamBySlug(slug) {
-  return HOMAMS.find((h) => h.slug === slug) || null
+  const key = normalizeHomamSlug(slug)
+  return HOMAMS.find((h) => h.slug === key) || null
 }

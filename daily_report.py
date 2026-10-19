@@ -209,18 +209,32 @@ def _create_workbook(records, summary):
 
 
 def generate_daily_report(report_date=None):
+    IST_OFFSET = datetime.timedelta(hours=5, minutes=30)
+
     if report_date is None:
-        report_date = datetime.date.today()
+        # Determine "today" in Asia/Kolkata (IST = UTC+5:30)
+        now_ist = datetime.datetime.now(datetime.timezone.utc) + IST_OFFSET
+        report_date = now_ist.date()
     elif isinstance(report_date, str):
         report_date = datetime.date.fromisoformat(report_date)
-    report_date = report_date.isoformat()
+
+    report_date_str = report_date.isoformat()
+
+    # SQLite stores created_at via datetime('now') which is UTC.
+    # Convert IST day boundaries to UTC for correct filtering.
+    ist_start = datetime.datetime(report_date.year, report_date.month, report_date.day, 0, 0, 0)
+    ist_end   = ist_start + datetime.timedelta(days=1)
+    utc_start = (ist_start - IST_OFFSET).strftime("%Y-%m-%d %H:%M:%S")
+    utc_end   = (ist_end   - IST_OFFSET).strftime("%Y-%m-%d %H:%M:%S")
 
     try:
         with sqlite3.connect(DATABASE_URL) as db:
             db.row_factory = sqlite3.Row
             bookings = db.execute(
-                "SELECT * FROM bookings WHERE date(created_at) = ? ORDER BY created_at, id",
-                (report_date,),
+                "SELECT * FROM bookings "
+                "WHERE created_at >= ? AND created_at < ? "
+                "ORDER BY created_at, id",
+                (utc_start, utc_end),
             ).fetchall()
     except sqlite3.Error as error:
         print(f"Database error: {error}")
@@ -245,7 +259,7 @@ def generate_daily_report(report_date=None):
         "Total successful revenue": sum(record["total_amount"] for record in successful),
     }
 
-    email_lines = [f"Daily Booking Report - {report_date}", "=" * 60, ""]
+    email_lines = [f"Daily Booking Report - {report_date_str}", "=" * 60, ""]
     if not records:
         email_lines.extend(["No bookings were recorded for this date.", ""])
     for index, record in enumerate(records, 1):
@@ -273,15 +287,15 @@ def generate_daily_report(report_date=None):
     email_body = "\n".join(email_lines)
     workbook_bytes = _create_workbook(records, summary)
     attachment = (
-        f"booking_report_{report_date}.xlsx",
+        f"booking_report_{report_date_str}.xlsx",
         base64.b64encode(workbook_bytes).decode("ascii"),
         EXCEL_CONTENT_TYPE,
     )
 
-    print(f"Sending daily report for {report_date}...")
+    print(f"Sending daily report for {report_date_str}...")
     sent = send_email(
         to=ADMIN_EMAIL,
-        subject=f"Daily Booking Report - {report_date}",
+        subject=f"Daily Booking Report - {report_date_str}",
         body=email_body,
         attachment=attachment,
     )

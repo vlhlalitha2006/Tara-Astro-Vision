@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: tara-astro-vision-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: tara-astro-vision-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: DATABASE_URL
+        value: /var/data/jyotisha.db
+      - key: CORS_ORIGINS
+        value: https://www.taraastrovision.com,https://taraastrovision.com
+      - key: LOG_LEVEL
+        value: INFO
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

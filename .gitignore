@@ -1,1 +1,31 @@
+# ── Secrets ────────────────────────────────────────────
 .env
+
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ── Database ─────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Node / Homam App ─────────────────────────────────────
+homam-app/node_modules/
+node_modules/
+
+# ── OS & Editor ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.log

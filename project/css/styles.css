@@ -2167,6 +2167,79 @@ a.homam-card-detail:hover .homam-name {
   transform: scale(0.97);
 }
 
+.btn-add-cart:disabled,
+.btn-add-cart.btn-disabled {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #8f92a1 !important;
+  cursor: not-allowed !important;
+  opacity: 0.65;
+  transform: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+.btn-add-cart:disabled:hover,
+.btn-add-cart.btn-disabled:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  transform: none !important;
+}
+
+/* ════════════════ SERVICE SLOT & CAPACITY BADGE ════════════════ */
+.service-slot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin: 6px auto 10px auto;
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
+  width: fit-content;
+  text-align: center;
+}
+
+.service-slot-badge.available {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+.service-slot-badge.slot-low {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.service-slot-badge.sold-out {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  width: 100%;
+  padding: 5px 8px;
+}
+
+.service-slot-badge.coming-soon {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.btn-add-cart.sold-out,
+.btn-add-cart.sold-out:disabled {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
 /* ════════════════ HOMAM PRICE + QTY ════════════════ */
 .homam-price {
   font-family: var(--font-display);
@@ -2202,6 +2275,14 @@ a.homam-card-detail:hover .homam-name {
   color: var(--text-primary);
   padding: 5px 10px;
   font-size: 14px;
+}
+
+.homam-qty:disabled {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #777788;
 }
 
 .homam-note {

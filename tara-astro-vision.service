@@ -1,0 +1,27 @@
+[Unit]
+Description=Tara Astro Vision — FastAPI Backend
+After=network.target
+
+[Service]
+# ── Set this to the directory containing main.py ──────────────
+WorkingDirectory=/var/www/taraastrovision
+
+# ── Load .env file ────────────────────────────────────────────
+EnvironmentFile=/var/www/taraastrovision/.env
+
+# ── Adjust the path to your Python or .venv uvicorn ──────────
+ExecStart=/var/www/taraastrovision/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
+
+Restart=always
+RestartSec=5
+
+# ── Run as a non-root user (create one if needed) ────────────
+User=www-data
+Group=www-data
+
+# ── Security hardening ────────────────────────────────────────
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

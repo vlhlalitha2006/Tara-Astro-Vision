@@ -1,0 +1,29 @@
+# ══════════════════════════════════════════════════════════════════
+# tav-daily-report.service  —  systemd service unit
+# Tara Astro Vision: run the daily booking report
+#
+# Install:
+#   sudo cp tav-daily-report.service /etc/systemd/system/
+#   sudo cp tav-daily-report.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tav-daily-report.timer
+#   sudo systemctl list-timers tav-daily-report.timer
+# ══════════════════════════════════════════════════════════════════
+[Unit]
+Description=Tara Astro Vision — Daily Booking Report
+After=network.target
+
+[Service]
+Type=oneshot
+# ── Edit these two paths to match your server layout ─────────────
+WorkingDirectory=/var/www/taraastrovision
+ExecStart=/var/www/taraastrovision/send_daily_report.sh
+# ── Run as the web-server user (change if different) ─────────────
+User=www-data
+Group=www-data
+# ── Logging ──────────────────────────────────────────────────────
+StandardOutput=append:/var/log/tav_daily_report.log
+StandardError=append:/var/log/tav_daily_report.log
+# ── Security hardening ───────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true

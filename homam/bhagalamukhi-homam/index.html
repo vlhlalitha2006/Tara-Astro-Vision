@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Homam — Tara Astro Vision</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+    <!-- Keep old hash bookmarks working: /homam/index.html#/slug → /homam/slug -->
+    <script>
+      (function () {
+        var hash = window.location.hash || '';
+        var match = hash.match(/^#\/?([^/?#]+)/);
+        if (!match) return;
+        var slug = match[1];
+        if (!slug || slug === 'index.html' || slug.indexOf('.') >= 0) return;
+        var path = (window.location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '');
+        if (path.slice(-slug.length - 1) === '/' + slug || path === '/homam/' + slug) return;
+        window.location.replace('/homam/' + slug + (window.location.search || ''));
+      })();
+    </script>
+    <script type="module" crossorigin src="/homam/assets/index-2Lb4dSpd.js"></script>
+    <link rel="stylesheet" crossorigin href="/homam/assets/index-CVEq8naS.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

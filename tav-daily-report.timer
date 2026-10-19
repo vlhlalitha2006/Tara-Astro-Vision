@@ -1,0 +1,20 @@
+# ══════════════════════════════════════════════════════════════════
+# tav-daily-report.timer  —  systemd timer unit
+# Fires tav-daily-report.service once per day at 08:00 IST.
+#
+# 08:00 IST = 02:30 UTC.  OnCalendar uses UTC.
+# ══════════════════════════════════════════════════════════════════
+[Unit]
+Description=Tara Astro Vision — Daily Report Timer (08:00 IST / 02:30 UTC)
+Requires=tav-daily-report.service
+
+[Timer]
+# Fire at 02:30 UTC every day (= 08:00 Asia/Kolkata)
+OnCalendar=*-*-* 02:30:00 UTC
+# If the system was off at fire time, run immediately on next boot
+Persistent=true
+# Unit to activate
+Unit=tav-daily-report.service
+
+[Install]
+WantedBy=timers.target

@@ -4,25 +4,142 @@
    ══════════════════════════════════════════ */
 
 // ────────────────────────────────────────────
-// PAGE ROUTING
+// PAGE ROUTING & BROWSER HISTORY MANAGEMENT
 // ────────────────────────────────────────────
-function showPage(pageId) {
-  document.querySelectorAll('.page').forEach(p => {
-    p.classList.remove('active');
-    p.classList.add('hidden');
-  });
+const PAGE_ROUTES = {
+  home: '/',
+  horoscope: '/horoscope',
+  kundli: '/kundli',
+  dashboard: '/dashboard',
+  poojas: '/pooja',
+  homams: '/homam',
+  consult: '/consult',
+  'booking-form': '/booking',
+  payment: '/payment',
+  confirmation: '/confirmation',
+};
 
-  const target = document.getElementById(`page-${pageId}`);
+const ROUTE_ALIASES = {
+  '': 'home',
+  '/': 'home',
+  '/home': 'home',
+  '/index.html': 'home',
+  '/horoscope': 'horoscope',
+  '/horoscopes': 'horoscope',
+  '/kundli': 'kundli',
+  '/kundali': 'kundli',
+  '/dashboard': 'dashboard',
+  '/pooja': 'poojas',
+  '/poojas': 'poojas',
+  '/homam': 'homams',
+  '/homams': 'homams',
+  '/consult': 'consult',
+  '/consultation': 'consult',
+  '/consult-astrologer': 'consult',
+  '/booking': 'booking-form',
+  '/booking-form': 'booking-form',
+  '/payment': 'payment',
+  '/confirmation': 'confirmation',
+};
+
+const HASH_ALIASES = {
+  '#home': 'home',
+  '#horoscope': 'horoscope',
+  '#horoscopes': 'horoscope',
+  '#kundli': 'kundli',
+  '#kundali': 'kundli',
+  '#dashboard': 'dashboard',
+  '#pooja': 'poojas',
+  '#poojas': 'poojas',
+  '#homam': 'homams',
+  '#homams': 'homams',
+  '#consult': 'consult',
+  '#booking': 'booking-form',
+  '#booking-form': 'booking-form',
+  '#payment': 'payment',
+  '#confirmation': 'confirmation',
+};
+
+function normalizePageId(pageId) {
+  if (!pageId) return 'home';
+  const clean = String(pageId).replace(/^page-/, '').toLowerCase();
+  if (clean === 'pooja') return 'poojas';
+  if (clean === 'homam') return 'homams';
+  if (clean === 'booking') return 'booking-form';
+  if (PAGE_ROUTES[clean]) return clean;
+  return 'home';
+}
+
+function getPageIdFromLocation() {
+  const hash = (window.location.hash || '').toLowerCase();
+  if (HASH_ALIASES[hash]) {
+    return HASH_ALIASES[hash];
+  }
+  let path = (window.location.pathname || '/').toLowerCase();
+  if (path.length > 1 && path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+  if (ROUTE_ALIASES[path]) {
+    return ROUTE_ALIASES[path];
+  }
+  return 'home';
+}
+
+function getUrlForPage(canonicalId) {
+  if (window.location.protocol === 'file:') {
+    return canonicalId === 'home' ? '#home' : `#${canonicalId}`;
+  }
+  return PAGE_ROUTES[canonicalId] || '/';
+}
+
+function showPage(pageId, pushState = true) {
+  const canonicalId = normalizePageId(pageId);
+  const target = document.getElementById(`page-${canonicalId}`);
   if (target) {
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active');
+      p.classList.add('hidden');
+    });
     target.classList.remove('hidden');
     target.classList.add('active');
     window.scrollTo(0, 0);
   }
 
+  // Update browser history
+  const targetUrl = getUrlForPage(canonicalId);
+  try {
+    if (pushState) {
+      const currentState = window.history.state;
+      let currentPath = (window.location.pathname || '/').toLowerCase();
+      if (currentPath.length > 1 && currentPath.endsWith('/')) {
+        currentPath = currentPath.slice(0, -1);
+      }
+      const isSamePath = currentPath === targetUrl.toLowerCase();
+      if (!currentState || currentState.pageId !== canonicalId || !isSamePath) {
+        window.history.pushState({ pageId: canonicalId }, '', targetUrl);
+      }
+    } else {
+      window.history.replaceState({ pageId: canonicalId }, '', targetUrl);
+    }
+  } catch (err) {
+    // Graceful fallback for file:// or restricted environments
+  }
+
   // Update nav active states
   document.querySelectorAll('.nav-link').forEach(l => {
     l.classList.remove('active');
-    if (l.getAttribute('onclick') && l.getAttribute('onclick').includes(`('${pageId}')`)) {
+    const pageAttr = l.dataset.page || '';
+    const onclickAttr = l.getAttribute('onclick') || '';
+    const hrefAttr = l.getAttribute('href') || '';
+    if (
+      pageAttr === canonicalId ||
+      pageAttr === pageId ||
+      onclickAttr.includes(`'${canonicalId}'`) ||
+      onclickAttr.includes(`'${pageId}'`) ||
+      hrefAttr === targetUrl ||
+      (canonicalId === 'poojas' && (pageAttr === 'pooja' || hrefAttr === '/pooja')) ||
+      (canonicalId === 'homams' && (pageAttr === 'homam' || hrefAttr === '/homam'))
+    ) {
       l.classList.add('active');
     }
   });
@@ -30,11 +147,27 @@ function showPage(pageId) {
   closeNav();
 
   // Page-specific init
-  if (pageId === 'dashboard') {
-    const user = AUTH.getUser();
-    if (user) loadDashboard(user);
+  if (canonicalId === 'dashboard') {
+    if (typeof loadDashboard === 'function') loadDashboard();
   }
 }
+
+function navigateTo(pageId, event) {
+  if (event) {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) {
+      return;
+    }
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+  }
+  showPage(pageId, true);
+}
+
+window.addEventListener('popstate', (event) => {
+  const pageId = (event.state && event.state.pageId) ? event.state.pageId : getPageIdFromLocation();
+  showPage(pageId, false);
+});
 
 function closeNav() {
   const links = document.getElementById('navLinks');
@@ -246,10 +379,9 @@ async function generateKundli(e) {
     renderPlanetTable(chartData);
     renderLifeOverview(chartData);
 
-    // Save chart for logged-in user
+    // Save chart
     const pob = document.getElementById('pob').value;
-    const user = AUTH.getUser();
-    if (user) {
+    if (typeof saveChart === 'function') {
       saveChart({
         name: `${pob} — ${dob}`,
         dob, tob, lat, lon,
@@ -693,9 +825,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderRasiGrid();
   renderRasiChips();
   setLanguage(currentLang);
-  if (window.location.hash === '#homams') {
-    showPage('homams');
-  }
+  const initialPage = getPageIdFromLocation();
+  showPage(initialPage, false);
 });
 
 window.renderRasiGrid = renderRasiGrid;
@@ -703,6 +834,8 @@ window.renderRasiChips = renderRasiChips;
 
 // Make functions globally accessible for HTML onclick handlers
 window.showPage = showPage;
+window.navigateTo = navigateTo;
+window.getPageIdFromLocation = getPageIdFromLocation;
 window.toggleNav = toggleNav;
 window.closeNav = closeNav;
 window.showModal = showModal;
@@ -723,7 +856,7 @@ window.renderHoroscopeCard = renderHoroscopeCard;
 // ────────────────────────────────────────────
 // CONSULT ASTROLOGER PAGE
 // ────────────────────────────────────────────
-function submitConsult(e) {
+async function submitConsult(e) {
   e.preventDefault();
 
   const name = document.getElementById('c-name').value.trim();
@@ -732,8 +865,10 @@ function submitConsult(e) {
   const type = document.getElementById('c-type').value;
   const message = document.getElementById('c-message').value.trim();
   const errEl = document.getElementById('consult-error');
+  const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
 
   if (!name || !email || !phone || !type || !message) {
+    errEl.textContent = 'Please fill in all required fields.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -746,8 +881,162 @@ function submitConsult(e) {
   }
 
   errEl.classList.add('hidden');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting Request...';
+  }
 
-  showPaymentUnavailable();
+  try {
+    const apiBase = (typeof TAV_API_BASE !== 'undefined' ? TAV_API_BASE : '');
+    const consultId = 'TAV-CONSULT-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+    // 1. Attempt to create a Razorpay payment order for Astrologer Consultation
+    if (submitBtn) submitBtn.textContent = 'Preparing Payment...';
+    let orderRes = null;
+    try {
+      orderRes = await fetch(`${apiBase}/api/payment/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Astrologer Consultation',
+          serviceType: 'consultation',
+          persons: 1,
+          bookingId: consultId,
+          contactEmail: email,
+          contactPhone: phone,
+          participants: [{ name, email, phone, type, message }],
+        }),
+      });
+    } catch (netErr) {
+      orderRes = null;
+    }
+
+    if (!orderRes) {
+      throw new Error('Could not reach the payment server. No consultation was submitted; please try again.');
+    }
+    if (!orderRes.ok) {
+      const orderError = await orderRes.json().catch(() => ({}));
+      throw new Error(orderError.detail || 'Could not create the consultation payment order. No consultation was submitted.');
+    }
+
+    if (orderRes && orderRes.ok) {
+      const orderData = await orderRes.json();
+      if (!orderData.order_id || !orderData.key_id || !orderData.amount) {
+        throw new Error('The payment server returned an invalid order. No consultation was submitted.');
+      }
+      if (typeof loadRazorpayScript === 'function') {
+        await loadRazorpayScript();
+      }
+
+      const rzp = new window.Razorpay({
+        key: orderData.key_id,
+        order_id: orderData.order_id,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'Tara Astro Vision',
+        description: `${type.toUpperCase()} Astrologer Consultation`,
+        image: '/logo.jpg',
+        prefill: {
+          name: name,
+          email: email,
+          contact: phone,
+        },
+        notes: {
+          booking_id: consultId,
+          consultation_type: type,
+        },
+        theme: { color: '#c9962b' },
+        handler: async function (response) {
+          try {
+            if (submitBtn) submitBtn.textContent = 'Verifying Payment...';
+            // Verify payment
+            const vr = await fetch(`${apiBase}/api/payment/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                expected_amount_paise: orderData.amount,
+                booking_id: consultId,
+              }),
+            });
+            const vd = await vr.json();
+            if (!vr.ok || vd.verified !== true) {
+              throw new Error(vd.detail || 'Payment verification failed');
+            }
+
+            // Confirm booking
+            const confirmRes = await fetch(`${apiBase}/api/booking/confirm`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: consultId,
+                type: 'consultation',
+                name: 'Astrologer Consultation',
+                price: orderData.amount / 100,
+                persons: 1,
+                participants: [{ name, email, phone, type, message }],
+                contactEmail: email,
+                contactPhone: phone,
+                status: 'paid',
+                paidAt: new Date().toISOString(),
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+            const confirmData = await confirmRes.json();
+            if (!confirmRes.ok) {
+              throw new Error(confirmData.detail || 'Booking confirmation failed');
+            }
+
+            document.getElementById('consultForm').classList.add('hidden');
+            document.getElementById('consult-success').classList.remove('hidden');
+          } catch (err) {
+            errEl.textContent = err.message || 'Payment verification failed. Please contact support.';
+            errEl.classList.remove('hidden');
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Pay & Book Consultation';
+            }
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Pay & Book Consultation';
+            }
+            errEl.textContent = 'Payment cancelled. You can try again.';
+            errEl.classList.remove('hidden');
+          },
+        },
+      });
+
+      rzp.on('payment.failed', function (resp) {
+        const desc = (resp.error && resp.error.description) || 'Payment failed.';
+        errEl.textContent = 'Payment failed: ' + desc;
+        errEl.classList.remove('hidden');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Pay & Book Consultation';
+        }
+      });
+
+      rzp.open();
+      return;
+    }
+  } catch (err) {
+    errEl.textContent = err.message || 'Error submitting request. Please try again.';
+    errEl.classList.remove('hidden');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Pay & Book Consultation';
+    }
+  }
 }
 
 function resetConsultForm() {

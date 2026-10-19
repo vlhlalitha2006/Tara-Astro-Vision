@@ -8,7 +8,7 @@ def nav(active: str) -> str:
     def cls(name: str) -> str:
         return 'nav-link active' if active == name else 'nav-link'
     def pcl(name: str) -> str:
-        return 'nav-link nav-link-protected active' if active == name else 'nav-link nav-link-protected'
+        return 'nav-link active' if active == name else 'nav-link'
     return f"""  <nav class="navbar" id="navbar">
     <div class="nav-inner">
       <a href="index.html" class="nav-logo">
@@ -44,21 +44,6 @@ def nav(active: str) -> str:
             <button type="button" data-lang="mr"><span>🇮🇳</span> मराठी</button>
           </div>
         </div>
-        <div class="auth-buttons" id="authButtons">
-          <button type="button" class="btn-login" data-i18n="login">Login</button>
-          <button type="button" class="btn-register" data-i18n="register">Register</button>
-        </div>
-        <div class="user-menu hidden" id="userMenu">
-          <button type="button" class="user-avatar-btn">
-            <span class="avatar-circle" id="avatarInitial">A</span>
-            <span id="userName">User</span>
-          </button>
-          <div class="user-dropdown hidden" id="userDropdown">
-            <a href="dashboard.html">Dashboard</a>
-            <a href="dashboard.html">Profile</a>
-            <a href="#" id="logoutLink">Logout</a>
-          </div>
-        </div>
         <button type="button" class="cart-btn" id="cartBtn">
           🛒 <span class="cart-count" id="cartCount">0</span>
         </button>
@@ -92,68 +77,6 @@ CART = """  <div class="cart-overlay hidden" id="cartOverlay"></div>
   </div>"""
 
 MODALS = """  <div class="modal-overlay hidden" id="modalOverlay"></div>
-  <div class="modal hidden" id="modal-login">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="login_title">Welcome Back</h2>
-      <p data-i18n="login_sub">Login to access your personal guidance</p>
-    </div>
-    <form class="modal-form" id="formLogin">
-      <div class="form-group">
-        <label data-i18n="email">Email</label>
-        <input type="email" id="loginEmail" required class="form-input" placeholder="your@email.com" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="password">Password</label>
-        <input type="password" id="loginPass" required class="form-input" placeholder="••••••••" autocomplete="current-password" />
-      </div>
-      <div class="modal-error hidden" id="loginError"></div>
-      <button type="submit" class="btn-primary full-width" data-i18n="login">Login</button>
-      <p class="modal-switch" data-i18n="no_account">Don't have an account?
-        <a href="#" data-open-modal="register" data-i18n="register_link">Register</a>
-      </p>
-    </form>
-  </div>
-  <div class="modal hidden" id="modal-register">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="register_title">Begin Your Journey</h2>
-      <p data-i18n="register_sub">Create your sacred account</p>
-    </div>
-    <form class="modal-form" id="formRegister">
-      <div class="form-group">
-        <label data-i18n="full_name">Full Name</label>
-        <input type="text" id="regName" required class="form-input" placeholder="Your Name" autocomplete="name" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="email">Email</label>
-        <input type="email" id="regEmail" required class="form-input" placeholder="your@email.com" autocomplete="email" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="password">Password</label>
-        <input type="password" id="regPass" required class="form-input" placeholder="Min 8 characters" minlength="8" autocomplete="new-password" />
-      </div>
-      <div class="modal-error hidden" id="registerError"></div>
-      <button type="submit" class="btn-primary full-width" data-i18n="register">Register</button>
-      <p class="modal-switch">Already have an account?
-        <a href="#" data-open-modal="login" data-i18n="login_link">Login</a>
-      </p>
-    </form>
-  </div>
-  <div class="modal hidden" id="modal-loginRequired">
-    <button type="button" class="modal-close" aria-label="Close">×</button>
-    <div class="modal-header">
-      <img src="logo.jpg" alt="Tara Astro Vision Logo" class="modal-om">
-      <h2 data-i18n="auth_required">Login Required</h2>
-      <p data-i18n="auth_required_desc">Please login or register to access your personalized birth chart and predictions.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn-primary" data-open-modal="login" data-i18n="login">Login</button>
-      <button type="button" class="btn-secondary" data-open-modal="register" data-i18n="register">Register</button>
-    </div>
-  </div>
   <div class="modal hidden" id="modal-loading">
     <div class="loading-inner">
       <div class="chakra-spinner">𑁍</div>
@@ -242,7 +165,7 @@ def main():
         <h1 class="hero-title" data-i18n="hero_title">Discover Your Cosmic Path</h1>
         <p class="hero-sub" data-i18n="hero_sub">Ancient Vedic wisdom. Authentic Jyotisha. Guidance rooted in dharma.</p>
         <div class="hero-cta">
-          <a class="btn-primary nav-link-protected" href="kundli.html" id="heroKundliCta" data-i18n="cta_kundli">Generate Your Kundli</a>
+          <a class="btn-primary" href="kundli.html" id="heroKundliCta" data-i18n="cta_kundli">Generate Your Kundli</a>
           <a class="btn-secondary" href="horoscope.html" data-i18n="cta_horoscope">Today's Horoscope</a>
         </div>
       </div>
@@ -252,7 +175,7 @@ def main():
       <div class="container">
         <h2 class="section-title" data-i18n="feat_title">Sacred Offerings</h2>
         <div class="features-grid">
-          <a class="feature-card nav-link-protected" href="kundli.html">
+          <a class="feature-card" href="kundli.html">
             <div class="feat-icon">𑁍</div>
             <h3 data-i18n="feat_kundli">Birth Chart</h3>
             <p data-i18n="feat_kundli_desc">Your South Indian Rasi chart with precise planetary positions and life guidance.</p>
@@ -262,7 +185,7 @@ def main():
             <h3 data-i18n="feat_horoscope">Daily Guidance</h3>
             <p data-i18n="feat_horoscope_desc">Moon-based daily, weekly, and monthly wisdom for your Rasi and Nakshatra.</p>
           </a>
-          <a class="feature-card nav-link-protected" href="dashboard.html">
+          <a class="feature-card" href="dashboard.html">
             <div class="feat-icon">𑁋</div>
             <h3 data-i18n="feat_dashboard">Personal Journey</h3>
             <p data-i18n="feat_dashboard_desc">Your saved charts, past readings, and life predictions in one place.</p>
